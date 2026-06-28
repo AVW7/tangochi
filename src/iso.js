@@ -13,10 +13,12 @@ window.TG = window.TG || {};
   let ox = 160, oy = 72;   // projection origin (top corner of tile 0,0)
   const WALL_H = 60;
 
-  // Floor palette (subtle checker) + walls.
-  const FLOOR_A = '#2b3550', FLOOR_B = '#313c5e', FLOOR_EDGE = '#1c2436';
-  const WALL_L_TOP = '#222b44', WALL_L = '#1b2236';
-  const WALL_R_TOP = '#2a3450', WALL_R = '#232c46';
+  // Monochrome "Claude FM" room: grey halftone dots on black, no colour.
+  const FLOOR_DOT = '#2e2e2e';            // floor stipple
+  const WALL_DOT_L = '#303030';           // shaded (left) wall stipple
+  const WALL_DOT_R = '#3e3e3e';           // lit (right) wall stipple
+  const EDGE = 'rgba(255,255,255,0.05)';  // faint grid / outline lines
+  const DOT_STEP = 6, DOT_R = 1;          // dot spacing / radius (internal px)
 
   // Pet position in float tile coords + a wander target.
   let pet = { col: 2, row: 2, tx: 2, ty: 2, wait: 0, facing: 1 };
@@ -70,6 +72,20 @@ window.TG = window.TG || {};
     diamond(ctx, bx, by - ht, sw, sh, top);
   }
 
+  // Fill a clipped shape with a continuous grid of small dots (halftone).
+  // `clip` receives ctx and must trace the path to clip to.
+  function dotFill(ctx, clip, x0, y0, x1, y1, color, step, r) {
+    ctx.save();
+    ctx.beginPath(); clip(ctx); ctx.clip();
+    ctx.fillStyle = color;
+    const sx = Math.floor(x0 / step) * step, sy = Math.floor(y0 / step) * step;
+    for (let y = sy; y <= y1; y += step)
+      for (let x = sx; x <= x1; x += step) {
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+    ctx.restore();
+  }
+
   function shadow(ctx, x, y, w) {
     ctx.globalAlpha = 0.28;
     ctx.fillStyle = '#000';
@@ -80,44 +96,45 @@ window.TG = window.TG || {};
   }
 
   // ── FURNITURE (procedural pixel-ish iso shapes) ──────────
+  // Furniture is monochrome (grey) so the pet stays the only colour in the room.
   const FURNITURE = {
     rug(ctx, x, y) {
-      diamond(ctx, x, y, hw * 0.82, hh * 0.82, '#7a4ba0');
-      diamond(ctx, x, y, hw * 0.55, hh * 0.55, '#9b6fc4');
-      diamond(ctx, x, y, hw * 0.28, hh * 0.28, '#c79be6');
+      diamond(ctx, x, y, hw * 0.82, hh * 0.82, '#2e2e2e');
+      diamond(ctx, x, y, hw * 0.55, hh * 0.55, '#3c3c3c');
+      diamond(ctx, x, y, hw * 0.28, hh * 0.28, '#4c4c4c');
     },
     beanbag(ctx, x, y) {
       shadow(ctx, x, y + 2, 16);
-      isoCube(ctx, x, y, 16, 8, 10, '#3a9ad6', '#2b6fa0', '#327fb8');
-      diamond(ctx, x, y - 10, 12, 6, '#2b6fa0'); // dent
+      isoCube(ctx, x, y, 16, 8, 10, '#555555', '#363636', '#454545');
+      diamond(ctx, x, y - 10, 12, 6, '#363636'); // dent
     },
     plant(ctx, x, y) {
       shadow(ctx, x, y + 2, 12);
-      isoCube(ctx, x, y, 9, 4.5, 12, '#9a5a2c', '#6e3f1d', '#84502a'); // pot
+      isoCube(ctx, x, y, 9, 4.5, 12, '#4a4a4a', '#2c2c2c', '#3a3a3a'); // pot
       const gy = y - 12;
-      ctx.fillStyle = '#2f8f4e';
+      ctx.fillStyle = '#3f3f3f';
       for (const [dx, dy, s] of [[0,-12,9],[-7,-4,7],[7,-4,7],[0,-2,8]]) {
         ctx.beginPath(); ctx.arc(x + dx, gy + dy, s, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.fillStyle = '#3fb567';
+      ctx.fillStyle = '#525252';
       ctx.beginPath(); ctx.arc(x - 2, gy - 10, 5, 0, Math.PI * 2); ctx.fill();
     },
     lamp(ctx, x, y) {
       shadow(ctx, x, y + 2, 9);
-      isoCube(ctx, x, y, 4, 2, 34, '#444c66', '#2c3346', '#363e56'); // post
-      // glow
+      isoCube(ctx, x, y, 4, 2, 34, '#4a4a4a', '#2c2c2c', '#3a3a3a'); // post
+      // warm light glow (the one warmth — a lamp casting light)
       const g = ctx.createRadialGradient(x, y - 40, 2, x, y - 40, 26);
-      g.addColorStop(0, 'rgba(255,228,140,0.85)');
-      g.addColorStop(1, 'rgba(255,228,140,0)');
+      g.addColorStop(0, 'rgba(255,228,160,0.7)');
+      g.addColorStop(1, 'rgba(255,228,160,0)');
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(x, y - 40, 26, 0, Math.PI * 2); ctx.fill();
-      isoCube(ctx, x, y - 34, 9, 4.5, 8, '#ffe48c', '#d9b85a', '#ecc972'); // shade
+      isoCube(ctx, x, y - 34, 9, 4.5, 8, '#d8d2c4', '#9a958a', '#bbb6a8'); // shade
     },
     bookshelf(ctx, x, y) {
       shadow(ctx, x, y + 2, 16);
-      isoCube(ctx, x, y, 15, 7.5, 42, '#5a3f28', '#3c2a1a', '#4a3320');
-      // book rows on the right face
-      const cols = ['#c0392b', '#2980b9', '#27ae60', '#f39c12', '#8e44ad'];
+      isoCube(ctx, x, y, 15, 7.5, 42, '#4a4a4a', '#2c2c2c', '#3a3a3a');
+      // book rows on the right face (varied greys)
+      const cols = ['#5a5a5a', '#444444', '#666666', '#4e4e4e', '#5f5f5f'];
       for (let s = 0; s < 3; s++) {
         const sy = y - 8 - s * 12;
         for (let b = 0; b < 4; b++) {
@@ -128,10 +145,10 @@ window.TG = window.TG || {};
     },
     poster(ctx, x, y) { // placed flat on the floor tile as a framed art crate if not on wall
       shadow(ctx, x, y + 2, 12);
-      isoCube(ctx, x, y, 11, 5.5, 18, '#e8e8f0', '#b9b9cc', '#d2d2e0');
-      ctx.fillStyle = '#44aaff';
+      isoCube(ctx, x, y, 11, 5.5, 18, '#6a6a6a', '#424242', '#565656');
+      ctx.fillStyle = '#3a3a3a';
       ctx.fillRect(x - 5, y - 16, 10, 8);
-      ctx.fillStyle = '#ff55cc';
+      ctx.fillStyle = '#5a5a5a';
       ctx.fillRect(x - 3, y - 14, 4, 4);
     },
   };
@@ -195,24 +212,15 @@ window.TG = window.TG || {};
   function render(ctx, bounce) {
     ctx.clearRect(0, 0, W, H);
 
-    // Back walls (drawn first, behind everything).
-    // Left wall sits behind the col=0 edge; right wall behind row=0 edge.
+    // Back walls (drawn first, behind everything) as dotted stipple + faint
+    // outline. Left wall sits behind the col=0 edge; right behind row=0 edge.
     const A = proj(0, 0), Lc = proj(0, GRID), Rc = proj(GRID, 0);
-    // left wall
-    ctx.fillStyle = WALL_L;
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y); ctx.lineTo(Lc.x, Lc.y);
-    ctx.lineTo(Lc.x, Lc.y - WALL_H); ctx.lineTo(A.x, A.y - WALL_H);
-    ctx.closePath(); ctx.fill();
-    // right wall
-    ctx.fillStyle = WALL_R;
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y); ctx.lineTo(Rc.x, Rc.y);
-    ctx.lineTo(Rc.x, Rc.y - WALL_H); ctx.lineTo(A.x, A.y - WALL_H);
-    ctx.closePath(); ctx.fill();
-    // wall top trim
-    ctx.fillStyle = WALL_L_TOP;
-    ctx.fillRect(Math.min(A.x, Lc.x), 0, 2, 2); // (no-op safeguard)
+    const leftWall = c => { c.moveTo(A.x, A.y); c.lineTo(Lc.x, Lc.y); c.lineTo(Lc.x, Lc.y - WALL_H); c.lineTo(A.x, A.y - WALL_H); c.closePath(); };
+    dotFill(ctx, leftWall, Math.min(A.x, Lc.x), Math.min(A.y, Lc.y) - WALL_H, Math.max(A.x, Lc.x), Math.max(A.y, Lc.y), WALL_DOT_L, DOT_STEP, DOT_R);
+    ctx.strokeStyle = EDGE; ctx.lineWidth = 1; ctx.beginPath(); leftWall(ctx); ctx.stroke();
+    const rightWall = c => { c.moveTo(A.x, A.y); c.lineTo(Rc.x, Rc.y); c.lineTo(Rc.x, Rc.y - WALL_H); c.lineTo(A.x, A.y - WALL_H); c.closePath(); };
+    dotFill(ctx, rightWall, Math.min(A.x, Rc.x), Math.min(A.y, Rc.y) - WALL_H, Math.max(A.x, Rc.x), Math.max(A.y, Rc.y), WALL_DOT_R, DOT_STEP, DOT_R);
+    ctx.strokeStyle = EDGE; ctx.lineWidth = 1; ctx.beginPath(); rightWall(ctx); ctx.stroke();
 
     // Poster decoration on the right wall (if owned/placed).
     const poster = TG.STATE.placed.find(p => p.item === 'poster' && p.wall);
@@ -223,23 +231,58 @@ window.TG = window.TG || {};
       ctx.fillStyle = '#ffd83d'; ctx.fillRect(wx - 6, wy + 4, 12, 4);
     }
 
-    // Floor tiles (checker) with thin edges for readability.
-    for (let s = 0; s <= (GRID - 1) * 2; s++) {
-      for (let col = 0; col < GRID; col++) {
-        const row = s - col;
-        if (row < 0 || row >= GRID) continue;
-        const p = proj(col, row);
-        diamond(ctx, p.x, p.y + hh, hw, hh, (col + row) % 2 ? FLOOR_A : FLOOR_B, FLOOR_EDGE);
+    // Floor — one continuous dot field clipped to the floor diamond, plus faint
+    // grid lines for the iso perspective (matches Claude FM's dotted floor).
+    const fTop = { x: ox, y: oy };
+    const fRight = { x: ox + GRID * hw, y: oy + GRID * hh };
+    const fBot = { x: ox, y: oy + 2 * GRID * hh };
+    const fLeft = { x: ox - GRID * hw, y: oy + GRID * hh };
+    const floorPath = c => { c.moveTo(fTop.x, fTop.y); c.lineTo(fRight.x, fRight.y); c.lineTo(fBot.x, fBot.y); c.lineTo(fLeft.x, fLeft.y); c.closePath(); };
+    dotFill(ctx, floorPath, fLeft.x, fTop.y, fRight.x, fBot.y, FLOOR_DOT, DOT_STEP, DOT_R);
+    ctx.strokeStyle = EDGE; ctx.lineWidth = 1;
+    for (let col = 0; col < GRID; col++) {
+      for (let row = 0; row < GRID; row++) {
+        const p = proj(col, row), cy = p.y + hh;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + hw, cy);
+        ctx.lineTo(p.x, p.y + 2 * hh); ctx.lineTo(p.x - hw, cy); ctx.closePath();
+        ctx.stroke();
       }
     }
 
+    // Room editor: floor overlay (edit tint + selection highlight) before items.
+    TG.roomeditor?.drawFloorOverlay?.(ctx);
+
     // Build the depth-sorted drawable list: furniture + pet.
     const items = [];
-    for (const f of TG.STATE.placed) {
+    const _sel   = TG.roomeditor?.getSelected?.();
+    const _ghost = TG.roomeditor?.getGhost?.();
+    for (const [fIdx, f] of TG.STATE.placed.entries()) {
       if (f.item === 'poster' && f.wall) continue; // wall art handled above
+      const dimmed = _ghost && _sel?.idx === fIdx;  // dim while ghost is elsewhere
       items.push({ key: f.col + f.row, sub: 0, render: (cx) => {
         const c = tileCenter(f.col, f.row);
-        (FURNITURE[TG.ITEMS[f.item] && TG.ITEMS[f.item].draw] || FURNITURE.beanbag)(cx, c.x, c.y);
+        if (dimmed) cx.globalAlpha = 0.3;
+        (FURNITURE[TG.ITEMS[f.item]?.draw] || FURNITURE.beanbag)(cx, c.x, c.y);
+        cx.globalAlpha = 1;
+      }});
+    }
+    // Ghost preview for the piece being dragged
+    if (_ghost?.item) {
+      items.push({ key: _ghost.col + _ghost.row, sub: 0.5, render: (cx) => {
+        const c = tileCenter(_ghost.col, _ghost.row);
+        cx.globalAlpha = _ghost.valid ? 0.52 : 0.22;
+        (FURNITURE[TG.ITEMS[_ghost.item]?.draw] || FURNITURE.beanbag)(cx, c.x, c.y);
+        cx.globalAlpha = 1;
+        if (!_ghost.valid) {
+          // Red ✕ over invalid drop target
+          cx.strokeStyle = '#ff4444'; cx.lineWidth = 2; cx.globalAlpha = 0.7;
+          cx.beginPath();
+          cx.moveTo(c.x - 7, c.y - 7); cx.lineTo(c.x + 7, c.y + 7);
+          cx.moveTo(c.x + 7, c.y - 7); cx.lineTo(c.x - 7, c.y + 7);
+          cx.stroke();
+          cx.globalAlpha = 1;
+        }
       }});
     }
     items.push({ key: pet.col + pet.row, sub: 1, render: (cx) => drawPet(cx, bounce) });
@@ -280,6 +323,9 @@ window.TG = window.TG || {};
   TG.iso = {
     GRID, init() {}, resize, render, update,
     tileCenter, screenToTile, petScreen, inBounds, occupied,
+    proj,                           // needed by roomeditor overlays
+    get hw() { return hw; },        // half tile width
+    get hh() { return hh; },        // half tile height
     get W() { return W; }, get H() { return H; },
     petTile: () => ({ col: Math.round(pet.col), row: Math.round(pet.row) }),
   };

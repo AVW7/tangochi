@@ -77,14 +77,52 @@ window.TG = window.TG || {};
 
   // ── SPECIES GRID ────────────────────────────────────────
   function buildSpecies() {
+    const frame = TG.anim && TG.anim.frame ? TG.anim.frame() : 0;
+    const currentKey = S().species;
+
+    // Update big preview canvas
+    const bigCanvas = document.getElementById('spBigPreview');
+    if (bigCanvas) {
+      const bctx = bigCanvas.getContext('2d');
+      bctx.clearRect(0, 0, 80, 80);
+      TG.sprites.drawSpecies(bctx, currentKey, frame, 0, 0, 5);
+      const sp = TG.SPECIES[currentKey];
+      if (sp) {
+        $('spViewerName').textContent = sp.name;
+        $('spViewerTag').textContent = sp.personality;
+        $('spViewerEmoji').textContent = sp.emoji;
+      }
+    }
+
+    // Build grid cards
     const grid = $('speciesGrid'); grid.innerHTML = '';
     TG.SPECIES_ORDER.forEach(key => {
       const sp = TG.SPECIES[key];
       const owned = S().unlockedSpecies.includes(key);
+      const isActive = key === currentKey;
       const btn = document.createElement('div');
-      btn.className = 'sp-btn' + (key === S().species ? ' active' : '') + (owned ? '' : ' locked');
-      btn.innerHTML = `<span class="sp-emoji">${sp.emoji}</span><span class="sp-name">${sp.name}</span>` +
-        (owned ? '' : `<span class="lock">🔒 ${TG.SPECIES_COST}</span>`);
+      btn.className = 'sp-btn' + (isActive ? ' active' : '') + (owned ? '' : ' locked');
+
+      // Canvas thumbnail (32×32 = 16 cells × 2px)
+      const cnv = document.createElement('canvas');
+      cnv.width = 32; cnv.height = 32;
+      cnv.className = 'sp-canvas';
+      const cctx = cnv.getContext('2d');
+      TG.sprites.drawSpecies(cctx, key, frame, 0, 0, 2);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'sp-name';
+      nameSpan.textContent = sp.name;
+
+      btn.appendChild(cnv);
+      btn.appendChild(nameSpan);
+      if (!owned) {
+        const lock = document.createElement('span');
+        lock.className = 'lock';
+        lock.textContent = `🔒 ${TG.SPECIES_COST}`;
+        btn.appendChild(lock);
+      }
+
       btn.onclick = () => owned ? TG.game.setSpecies(key) : TG.shop.unlockSpecies(key);
       grid.appendChild(btn);
     });
@@ -170,25 +208,47 @@ window.TG = window.TG || {};
       };
     });
 
-    // canvas tap → squash bug (during hunt) else pet
+    // canvas pointer: room editor > bug hunt > pet tap
     const cv = $('petCanvas');
-    cv.addEventListener('pointerdown', e => {
+    const cvCoords = e => {
       const r = cv.getBoundingClientRect();
-      const x = (e.clientX - r.left) * (cv.width / r.width);
-      const y = (e.clientY - r.top) * (cv.height / r.height);
+      return { x: (e.clientX - r.left) * (cv.width / r.width),
+               y: (e.clientY - r.top)  * (cv.height / r.height) };
+    };
+    cv.addEventListener('pointerdown', e => {
+      const { x, y } = cvCoords(e);
       TG.audio.ensure();
+      if (TG.roomeditor.isActive()) {
+        TG.roomeditor.onDown(x, y);
+        cv.setPointerCapture(e.pointerId);
+        return;
+      }
       if (TG.minigame.active()) { if (TG.minigame.handleClick(x, y)) { TG.ui.refresh(); return; } }
       TG.actions.petClick();
     });
+    cv.addEventListener('pointermove', e => {
+      if (!TG.roomeditor.isActive()) return;
+      const { x, y } = cvCoords(e);
+      TG.roomeditor.onMove(x, y);
+    });
+    cv.addEventListener('pointerup', e => {
+      if (!TG.roomeditor.isActive()) return;
+      const { x, y } = cvCoords(e);
+      TG.roomeditor.onUp(x, y);
+    });
 
     $('clearRoom').onclick = () => TG.shop.clearRoom();
+    $('toggleEdit').onclick = () => {
+      TG.roomeditor.toggle();
+      $('toggleEdit').classList.toggle('active', TG.roomeditor.isActive());
+    };
     $('toggleSound').onclick = () => { S().settings.sound = !S().settings.sound; if (S().settings.sound) TG.audio.play('coin'); toast(S().settings.sound ? '🔊 sound on' : '🔇 sound off'); refresh(); TG.state.save(); };
     $('toggleMotion').onclick = () => { S().settings.reducedMotion = !S().settings.reducedMotion; toast(S().settings.reducedMotion ? 'reduced motion' : 'full motion'); refresh(); TG.state.save(); };
     $('resetGame').onclick = () => {
-      if (confirm('Reset TANGOCHI? All progress is lost.')) { TG.state.reset(); location.reload(); }
+      if (confirm('Reset TAMAGOTCHI? All progress is lost.')) { TG.state.reset(); location.reload(); }
     };
 
-    $('footerInfo').textContent = `tangochi v2 · ${TG.SPECIES_ORDER.length} species`;
+    $('footerInfo').textContent = `tamagotchi v2 · ${TG.SPECIES_ORDER.length} species`;
   }
 
   TG.ui = { refresh, speak, toast, updateMgHud, init };

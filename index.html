@@ -3,101 +3,134 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TANGOCHI</title>
+<title>TAMAGOTCHI</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles/main.css">
+<link rel="stylesheet" href="styles/main.css?v=2">
 </head>
 <body class="mood-happy">
 
 <div id="app">
   <!-- HEADER -->
   <div class="header">
-    <div class="logo">TANGOCHI</div>
+    <div class="brand">
+      <div class="logo">TAMAGOTCHI</div>
+      <div class="tagline">a cozy place to think &amp; build</div>
+    </div>
     <div class="header-right">
+      <div class="nowplaying" id="nowPlaying" aria-label="lofi vibes">
+        <span class="np-eq"><i></i><i></i><i></i><i></i></span>
+        <span class="np-text">lofi.fm</span>
+      </div>
       <div class="badge" id="stageBadge">BABY</div>
       <div class="badge" id="levelBadge">LVL 1</div>
       <div class="badge coins" id="coinBadge">◉ 0</div>
     </div>
   </div>
 
-  <!-- ROOM -->
-  <div class="pet-card" id="petCard">
-    <div class="status-bar"></div>
-    <div class="mood-badge" id="moodBadge">HAPPY</div>
+  <!-- MAIN GAME LAYOUT — hero room + side rail -->
+  <div class="game-layout">
 
-    <div class="room-wrap">
-      <canvas id="petCanvas" width="320" height="300"></canvas>
-      <div class="speech-bubble" id="speechBubble">...</div>
+    <!-- LEFT: hero room + status + actions -->
+    <div class="left-pane">
+      <div class="pet-card" id="petCard">
+        <div class="pet-titlebar">
+          <span class="pet-id">
+            <span class="species-name" id="speciesName">ROBOT</span>
+            <span class="species-emoji" id="speciesEmoji">[0_0]</span>
+          </span>
+          <span class="mood-badge" id="moodBadge">HAPPY</span>
+        </div>
 
-      <!-- mini-game HUD -->
-      <div class="mg-hud" id="mgHud">
-        <span id="mgTime">20</span>s · 🐛 <span id="mgScore">0</span>
+        <div class="room-wrap">
+          <div class="room-stage">
+            <canvas id="petCanvas" width="320" height="300"></canvas>
+            <div class="speech-bubble" id="speechBubble">...</div>
+
+            <!-- mini-game HUD -->
+            <div class="mg-hud" id="mgHud">
+              <span id="mgTime">20</span>s · 🐛 <span id="mgScore">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-row">
+        <div class="status-item"><span class="status-dot"></span><span id="statusText">IDLE</span></div>
+        <span id="streakInfo">streak: 1d</span>
+        <span id="lastFed">fed: never</span>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="btnFeed"><span class="btn-icon">🍖</span>FEED</button>
+        <button class="btn" id="btnPlay"><span class="btn-icon">🎮</span>PLAY</button>
+        <button class="btn" id="btnRest"><span class="btn-icon">💤</span>REST</button>
+        <button class="btn" id="btnClean"><span class="btn-icon">🧼</span>CLEAN</button>
+        <button class="btn" id="btnDebug"><span class="btn-icon">🐛</span>DEBUG</button>
+        <button class="btn" id="btnHunt"><span class="btn-icon">🎯</span>HUNT</button>
       </div>
     </div>
 
-    <div class="pet-info">
-      <span class="species-name" id="speciesName">ROBOT</span>
-      <span class="species-emoji" id="speciesEmoji">[0_0]</span>
+    <!-- RIGHT: needs + stats + tabs + panels -->
+    <div class="right-pane">
+      <!-- NEEDS -->
+      <div class="card">
+        <div class="card-title">// NEEDS</div>
+        <div class="bar-row"><span class="bar-label">🍖 HUNGER</span><div class="track"><div class="fill need" id="nf-hunger"></div></div><span class="num" id="nv-hunger">80</span></div>
+        <div class="bar-row"><span class="bar-label">⚡ ENERGY</span><div class="track"><div class="fill need" id="nf-energy"></div></div><span class="num" id="nv-energy">80</span></div>
+        <div class="bar-row"><span class="bar-label">😊 HAPPY</span><div class="track"><div class="fill need" id="nf-happiness"></div></div><span class="num" id="nv-happiness">75</span></div>
+        <div class="bar-row last"><span class="bar-label">🧼 HYGIENE</span><div class="track"><div class="fill need" id="nf-hygiene"></div></div><span class="num" id="nv-hygiene">80</span></div>
+      </div>
+
+      <!-- STATS -->
+      <div class="card">
+        <div class="card-title">// STATS</div>
+        <div class="bar-row"><span class="bar-label">DEBUGGING</span><div class="track"><div class="fill" id="sf-debugging"></div></div><span class="num" id="sv-debugging">50</span></div>
+        <div class="bar-row"><span class="bar-label">PATIENCE</span><div class="track"><div class="fill" id="sf-patience"></div></div><span class="num" id="sv-patience">50</span></div>
+        <div class="bar-row"><span class="bar-label">CHAOS</span><div class="track"><div class="fill" id="sf-chaos"></div></div><span class="num" id="sv-chaos">50</span></div>
+        <div class="bar-row"><span class="bar-label">WISDOM</span><div class="track"><div class="fill" id="sf-wisdom"></div></div><span class="num" id="sv-wisdom">50</span></div>
+        <div class="bar-row last"><span class="bar-label">SPEED</span><div class="track"><div class="fill" id="sf-speed"></div></div><span class="num" id="sv-speed">50</span></div>
+        <div class="xp-row">
+          <span class="xp-label">XP</span>
+          <div class="xp-track"><div class="xp-fill" id="xpFill"></div></div>
+          <span class="xp-label" id="xpLabel">0/100</span>
+        </div>
+      </div>
+
+      <!-- TABS -->
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="species">SPECIES</button>
+        <button class="tab" data-tab="shop">SHOP</button>
+        <button class="tab" data-tab="quests">QUESTS</button>
+        <button class="tab" data-tab="trophies">TROPHIES</button>
+      </div>
+
+      <!-- PANELS -->
+      <div class="panels-wrap">
+        <div class="card panel" id="panel-species">
+          <div class="sp-viewer">
+            <canvas id="spBigPreview" width="80" height="80" class="sp-big-preview"></canvas>
+            <div class="sp-viewer-info">
+              <div class="sp-viewer-name" id="spViewerName">ROBOT</div>
+              <div class="sp-viewer-tag" id="spViewerTag">Precise, loves tests</div>
+              <div class="sp-viewer-emoji" id="spViewerEmoji">[0_0]</div>
+            </div>
+          </div>
+          <div class="species-grid" id="speciesGrid"></div>
+        </div>
+        <div class="card panel hidden" id="panel-shop">
+          <div class="shop-grid" id="shopGrid"></div>
+          <button class="mini-btn" id="clearRoom">clear room</button>
+        </div>
+        <div class="card panel hidden" id="panel-quests"><div id="questList"></div></div>
+        <div class="card panel hidden" id="panel-trophies"><div class="trophy-grid" id="trophyGrid"></div></div>
+      </div>
     </div>
-  </div>
 
-  <!-- STATUS -->
-  <div class="status-row">
-    <div class="status-item"><span class="status-dot"></span><span id="statusText">IDLE</span></div>
-    <span id="streakInfo">streak: 1d</span>
-    <span id="lastFed">fed: never</span>
-  </div>
-
-  <!-- NEEDS -->
-  <div class="card">
-    <div class="card-title">// NEEDS</div>
-    <div class="bar-row"><span class="bar-label">🍖 HUNGER</span><div class="track"><div class="fill need" id="nf-hunger"></div></div><span class="num" id="nv-hunger">80</span></div>
-    <div class="bar-row"><span class="bar-label">⚡ ENERGY</span><div class="track"><div class="fill need" id="nf-energy"></div></div><span class="num" id="nv-energy">80</span></div>
-    <div class="bar-row"><span class="bar-label">😊 HAPPY</span><div class="track"><div class="fill need" id="nf-happiness"></div></div><span class="num" id="nv-happiness">75</span></div>
-    <div class="bar-row"><span class="bar-label">🧼 HYGIENE</span><div class="track"><div class="fill need" id="nf-hygiene"></div></div><span class="num" id="nv-hygiene">80</span></div>
-  </div>
-
-  <!-- ACTIONS -->
-  <div class="actions">
-    <button class="btn" id="btnFeed"><span class="btn-icon">🍖</span>FEED</button>
-    <button class="btn" id="btnPlay"><span class="btn-icon">🎮</span>PLAY</button>
-    <button class="btn" id="btnRest"><span class="btn-icon">💤</span>REST</button>
-    <button class="btn" id="btnClean"><span class="btn-icon">🧼</span>CLEAN</button>
-    <button class="btn" id="btnDebug"><span class="btn-icon">🐛</span>DEBUG</button>
-    <button class="btn" id="btnHunt"><span class="btn-icon">🎯</span>HUNT</button>
-  </div>
-
-  <!-- STATS -->
-  <div class="card">
-    <div class="card-title">// STATS</div>
-    <div class="bar-row"><span class="bar-label">DEBUGGING</span><div class="track"><div class="fill" id="sf-debugging"></div></div><span class="num" id="sv-debugging">50</span></div>
-    <div class="bar-row"><span class="bar-label">PATIENCE</span><div class="track"><div class="fill" id="sf-patience"></div></div><span class="num" id="sv-patience">50</span></div>
-    <div class="bar-row"><span class="bar-label">CHAOS</span><div class="track"><div class="fill" id="sf-chaos"></div></div><span class="num" id="sv-chaos">50</span></div>
-    <div class="bar-row"><span class="bar-label">WISDOM</span><div class="track"><div class="fill" id="sf-wisdom"></div></div><span class="num" id="sv-wisdom">50</span></div>
-    <div class="bar-row"><span class="bar-label">SPEED</span><div class="track"><div class="fill" id="sf-speed"></div></div><span class="num" id="sv-speed">50</span></div>
-    <div class="xp-row">
-      <span class="xp-label">XP</span>
-      <div class="xp-track"><div class="xp-fill" id="xpFill"></div></div>
-      <span class="xp-label" id="xpLabel">0/100</span>
-    </div>
-  </div>
-
-  <!-- TABS -->
-  <div class="tabs" id="tabs">
-    <button class="tab active" data-tab="species">SPECIES</button>
-    <button class="tab" data-tab="shop">SHOP</button>
-    <button class="tab" data-tab="quests">QUESTS</button>
-    <button class="tab" data-tab="trophies">TROPHIES</button>
-  </div>
-
-  <div class="card panel" id="panel-species"><div class="species-grid" id="speciesGrid"></div></div>
-  <div class="card panel hidden" id="panel-shop"><div class="shop-grid" id="shopGrid"></div>
-    <button class="mini-btn" id="clearRoom">clear room</button></div>
-  <div class="card panel hidden" id="panel-quests"><div id="questList"></div></div>
-  <div class="card panel hidden" id="panel-trophies"><div class="trophy-grid" id="trophyGrid"></div></div>
+  </div><!-- /game-layout -->
 
   <!-- FOOTER / SETTINGS -->
   <div class="footer">
+    <button class="mini-btn" id="toggleEdit">✏️ edit</button>
     <button class="mini-btn" id="toggleSound">🔊 sound</button>
     <button class="mini-btn" id="toggleMotion">🎞 motion</button>
     <button class="mini-btn" id="resetGame">↺ reset</button>
@@ -109,18 +142,19 @@
 
 <!-- modules (classic scripts, dependency order; runs from file://) -->
 <script src="src/core.js"></script>
-<script src="src/config.js"></script>
+<script src="src/config.js?v=2"></script>
 <script src="src/species.js"></script>
 <script src="src/state.js"></script>
 <script src="src/sprites.js"></script>
 <script src="src/particles.js"></script>
 <script src="src/audio.js"></script>
 <script src="src/sim.js"></script>
-<script src="src/iso.js"></script>
+<script src="src/iso.js?v=3"></script>
 <script src="src/minigame.js"></script>
 <script src="src/actions.js"></script>
 <script src="src/progress.js"></script>
 <script src="src/shop.js"></script>
+<script src="src/roomeditor.js"></script>
 <script src="src/ui.js"></script>
 <script src="src/main.js"></script>
 </body>

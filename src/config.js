@@ -58,13 +58,14 @@ TG.SPEECHES = {
 
 // ── ROOM TINT BY TIME OF DAY ──────────────────────────────
 // Real local clock drives ambient lighting over the room.
+// Neutral (no colour) so the room stays monochrome; time of day only dims it.
 TG.DAY_PHASES = [
-  { name: 'night',   from: 0,  tint: 'rgba(20,28,70,0.42)' },
-  { name: 'dawn',    from: 6,  tint: 'rgba(255,150,90,0.16)' },
+  { name: 'night',   from: 0,  tint: 'rgba(0,0,0,0.45)' },
+  { name: 'dawn',    from: 6,  tint: 'rgba(0,0,0,0.22)' },
   { name: 'day',     from: 8,  tint: 'rgba(255,255,255,0)' },
-  { name: 'dusk',    from: 18, tint: 'rgba(255,120,80,0.20)' },
-  { name: 'evening', from: 20, tint: 'rgba(40,40,110,0.34)' },
-  { name: 'night',   from: 22, tint: 'rgba(20,28,70,0.42)' },
+  { name: 'dusk',    from: 18, tint: 'rgba(0,0,0,0.18)' },
+  { name: 'evening', from: 20, tint: 'rgba(0,0,0,0.34)' },
+  { name: 'night',   from: 22, tint: 'rgba(0,0,0,0.45)' },
 ];
 
 // ── SHOP / ITEMS ──────────────────────────────────────────
