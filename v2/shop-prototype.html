@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TANGOCHI v2 — Room of Requirement · Object Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-0:#07080a; --bg-1:#0d0f12; --bg-2:#14171c; --bg-3:#1c2128;
+  --line:rgba(255,255,255,0.07); --line-strong:rgba(255,255,255,0.14);
+  --dot-on:#e9e9ec; --dot-dim:rgba(233,233,236,0.28); --dot-off:rgba(255,255,255,0.06);
+  --text-0:rgba(255,255,255,0.95); --text-1:rgba(255,255,255,0.60); --text-2:rgba(255,255,255,0.36);
+  --accent:#ffb347;            /* the one accent — warm/orange */
+  /* motion identity: premium base, playful pops on magic moments */
+  --ease-out:cubic-bezier(0.16,1,0.3,1); --ease-std:cubic-bezier(0.4,0,0.2,1);
+  --spring:cubic-bezier(0.34,1.56,0.64,1);
+  --t-quick:140ms; --t-std:280ms; --t-slow:520ms;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;
+  background:radial-gradient(ellipse 70% 50% at 50% -10%, rgba(255,179,71,0.04), transparent 60%), var(--bg-0);
+  color:var(--text-0); font-family:'JetBrains Mono',monospace; overflow:hidden;}
+
+.bg-grid{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:64px 64px;}
+.scanlines{position:fixed;inset:0;pointer-events:none;z-index:80;opacity:.30;
+  background:repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.18) 2px 3px);}
+
+/* ── layout ── */
+.app{position:fixed;inset:0;display:grid;grid-template-columns:1fr 320px;z-index:1;}
+@media(max-width:860px){.app{grid-template-columns:1fr;grid-template-rows:1fr auto;}}
+
+/* ── studio (main) ── */
+.studio{position:relative;overflow:hidden;display:flex;flex-direction:column;}
+.head{padding:18px 22px 12px;border-bottom:1px solid var(--line);}
+.head .name{font-family:'Press Start 2P',monospace;font-size:clamp(12px,2.6vw,16px);letter-spacing:.02em;}
+.head .sub{font-size:clamp(8px,1.5vw,10px);letter-spacing:.22em;color:var(--text-2);margin-top:8px;text-transform:uppercase;}
+.head .flavor{font-size:11px;color:var(--text-1);margin-top:10px;font-style:italic;letter-spacing:.02em;}
+.head .stats{display:flex;gap:14px;margin-top:12px;font-size:10px;letter-spacing:.1em;color:var(--text-2);text-transform:uppercase;align-items:center;}
+.head .stats b{color:var(--text-0);font-weight:500;}
+.head .coins{display:inline-flex;align-items:center;gap:5px;color:var(--accent);margin-left:auto;
+  border:1px solid rgba(255,179,71,.3);background:rgba(255,179,71,.06);border-radius:20px;padding:4px 11px;}
+.head .coins b{color:var(--accent);}
+
+/* filters */
+.filters{display:flex;gap:7px;flex-wrap:wrap;padding:12px 22px;border-bottom:1px solid var(--line);}
+.filters button{position:relative;background:var(--bg-2);border:1px solid var(--line);border-radius:6px;
+  padding:7px 11px;cursor:pointer;color:var(--text-1);font-size:9px;letter-spacing:.12em;
+  text-transform:uppercase;transition:color var(--t-quick) ease,border-color var(--t-quick) ease,background var(--t-quick) ease;}
+.filters button:hover{border-color:var(--line-strong);color:var(--text-0);}
+.filters button.on{border-color:var(--accent);color:var(--text-0);background:rgba(255,179,71,.09);}
+.filters button::after{content:'';position:absolute;left:11px;right:11px;bottom:3px;height:2px;border-radius:2px;
+  background:var(--accent);transform:scaleX(0);transform-origin:left;transition:transform var(--t-std) var(--ease-std);}
+.filters button.on::after{transform:scaleX(1);}
+
+/* catalog grid */
+.catalog{flex:1;overflow-y:auto;padding:18px 22px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;align-content:start;}
+
+/* object card */
+.card{position:relative;background:var(--bg-1);border:1px solid var(--line);border-radius:10px;
+  padding:14px 12px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;
+  background-image:radial-gradient(var(--dot-off) 1px,transparent 1.4px);background-size:9px 9px;
+  transition:transform var(--t-std) var(--ease-out),border-color var(--t-quick) ease,box-shadow var(--t-std) ease;overflow:hidden;}
+.card:hover{transform:translateY(-3px) scale(1.012);border-color:var(--line-strong);box-shadow:0 14px 30px -16px #000;}
+.card:hover .art .dot{fill:#ffffff;}
+.card:hover .art .dot.dim{fill:rgba(233,233,236,0.5);}
+.card.ready{border-color:rgba(255,179,71,.4);}
+.card.enter{animation:cardIn var(--t-std) var(--ease-out) backwards;}
+@keyframes cardIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+.card .badge{position:absolute;top:10px;left:10px;display:flex;align-items:center;gap:5px;
+  font-size:7px;letter-spacing:.12em;color:var(--text-2);text-transform:uppercase;}
+.card .badge .pip{width:6px;height:6px;border-radius:50%;background:var(--text-2);}
+.card.s-idea .pip{background:#5a5f66;} .card.s-concept .pip{background:#8a9098;}
+.card.s-prototype .pip{background:#c7cdd4;} .card.s-ready .pip{background:var(--accent);animation:pipBreathe 2.4s ease-in-out infinite;}
+.card.s-ready .badge{color:var(--accent);}
+@keyframes pipBreathe{0%,100%{box-shadow:0 0 5px var(--accent);}50%{box-shadow:0 0 11px var(--accent);}}
+/* 4-step stage progress track */
+.card .track{display:flex;gap:3px;width:100%;margin-top:2px;}
+.card .track .seg{flex:1;height:3px;border-radius:2px;background:var(--bg-3);overflow:hidden;}
+.card .track .seg::after{content:'';display:block;height:100%;background:var(--accent);
+  transform:scaleX(0);transform-origin:left;transition:transform var(--t-std) var(--ease-std);}
+.card .track .seg.on::after{transform:scaleX(1);}
+.card .art{height:78px;display:flex;align-items:flex-end;justify-content:center;margin-top:12px;}
+.card .art svg{display:block;max-height:78px;width:auto;}
+.card .art .dot{fill:var(--dot-on);transition:fill var(--t-quick) ease;transform-box:fill-box;transform-origin:center;}
+.card .art .dot.dim{fill:var(--dot-dim);}
+.card .nm{font-size:11px;letter-spacing:.04em;color:var(--text-0);text-align:center;}
+.card .meta{font-size:8px;letter-spacing:.08em;color:var(--text-2);text-transform:uppercase;text-align:center;}
+.card .fx{font-size:8px;color:var(--text-1);text-align:center;min-height:11px;letter-spacing:.02em;}
+.card .act{width:100%;margin-top:4px;background:var(--bg-2);border:1px solid var(--line);border-radius:6px;
+  padding:8px;cursor:pointer;color:var(--text-1);font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  transition:all .15s;}
+.card .act:hover{border-color:var(--line-strong);color:var(--text-0);}
+.card .act.acquire{border-color:var(--accent);color:var(--accent);}
+.card .act.acquire:hover{background:rgba(255,179,71,.12);}
+.card .act.owned{color:var(--text-2);cursor:default;border-style:dashed;}
+.card .act.owned:hover{border-color:var(--line);color:var(--text-2);}
+.card .del{position:absolute;top:8px;right:9px;font-size:12px;line-height:1;color:var(--text-2);
+  cursor:pointer;opacity:0;transition:opacity .15s;}
+.card:hover .del{opacity:1;} .card .del:hover{color:#ff6b6b;}
+
+/* conjure sweep */
+.card.conjuring::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg,transparent 30%,rgba(255,179,71,.35) 50%,transparent 70%);
+  transform:translateX(-120%);animation:sweep .7s ease-out;}
+@keyframes sweep{to{transform:translateX(120%);}}
+
+/* ── creator panel ── */
+.panel{background:var(--bg-1);border-left:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto;}
+@media(max-width:860px){.panel{border-left:none;border-top:1px solid var(--line);max-height:48vh;}}
+.panel h2{font-size:10px;letter-spacing:.2em;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;}
+.panel .ptag{font-size:10px;color:var(--text-1);font-style:italic;margin-bottom:14px;}
+.panel section{padding:18px;border-bottom:1px solid var(--line);}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:9px;letter-spacing:.14em;color:var(--text-2);text-transform:uppercase;margin-bottom:6px;}
+.field input,.field select{width:100%;background:var(--bg-2);border:1px solid var(--line);border-radius:6px;
+  padding:9px 10px;color:var(--text-0);font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;}
+.field input:focus,.field select:focus{border-color:var(--accent);}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* dot editor */
+.editor-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;}
+.editor{display:grid;gap:2px;background:var(--bg-0);padding:8px;border-radius:8px;border:1px solid var(--line);}
+.cell{width:14px;height:14px;border-radius:2px;background:var(--dot-off);cursor:pointer;transition:background .06s;}
+.cell.on{background:var(--dot-on);} .cell.dim{background:var(--dot-dim);}
+.editor-tools{display:flex;gap:7px;width:100%;}
+.editor-tools button{flex:1;background:var(--bg-2);border:1px solid var(--line);border-radius:6px;
+  padding:8px;cursor:pointer;color:var(--text-1);font-size:9px;letter-spacing:.1em;text-transform:uppercase;transition:all .15s;}
+.editor-tools button:hover{border-color:var(--line-strong);color:var(--text-0);}
+.editor-tools button.mode-on{border-color:var(--accent);color:var(--text-0);background:rgba(255,179,71,.09);}
+.conjure{width:100%;background:var(--accent);color:#1a1206;border:none;border-radius:8px;
+  padding:12px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:9px;letter-spacing:.04em;
+  transition:filter .15s,transform .1s;}
+.conjure:hover{filter:brightness(1.08);} .conjure:active{transform:translateY(1px);}
+.hint{font-size:9px;color:var(--text-2);line-height:1.6;margin-top:10px;}
+
+.foot{padding:14px 18px;font-size:9px;color:var(--text-2);letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center;}
+.foot button{background:none;border:1px solid var(--line);border-radius:6px;color:var(--text-2);
+  padding:6px 10px;font-size:8px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;}
+.foot button:hover{color:var(--text-0);border-color:var(--line-strong);}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);
+  background:var(--bg-2);border:1px solid var(--line-strong);border-radius:8px;padding:11px 16px;
+  font-size:10px;letter-spacing:.04em;color:var(--text-0);box-shadow:0 14px 30px -12px #000;
+  opacity:0;pointer-events:none;transition:opacity var(--t-std) ease,transform var(--t-std) var(--spring);z-index:90;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* touch targets */
+@media(pointer:coarse){
+  .filters button{padding:10px 13px;}
+  .card .act,.editor-tools button{min-height:44px;}
+  .cell{width:18px;height:18px;}
+}
+
+/* focus visibility (a11y) */
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+/* sketch-pad cell pop + live silhouette preview */
+.cell.pop{animation:cellPop var(--t-quick) var(--spring);}
+@keyframes cellPop{from{transform:scale(.5);}to{transform:scale(1);}}
+.preview{display:flex;align-items:center;justify-content:center;min-height:48px;margin-top:2px;opacity:.6;}
+.preview svg{max-height:48px;width:auto;} .preview svg .dot{fill:var(--dot-on);} .preview svg .dot.dim{fill:var(--dot-dim);}
+.preview:not(.has)::before{content:'silhouette preview';font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-2);}
+
+/* acquire fx: orange sparkle burst + floating coin delta (the one accent) */
+.spark{position:fixed;width:5px;height:5px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 6px var(--accent);z-index:95;pointer-events:none;}
+.coinfloat{position:fixed;z-index:95;color:var(--accent);font-size:11px;font-weight:600;
+  pointer-events:none;transform:translate(-50%,0);text-shadow:0 0 8px rgba(255,179,71,.5);}
+
+/* respect reduced motion */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;}
+}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+
+<div class="app">
+  <!-- =================== STUDIO =================== -->
+  <main class="studio">
+    <div class="head">
+      <div class="name">TANGOCHI</div>
+      <div class="sub">// v2 · room of requirement — object studio</div>
+      <div class="flavor">conjure what the room requires · ideas become objects</div>
+      <div class="stats">
+        <span><b id="stTotal">0</b> objects</span>
+        <span><b id="stReady">0</b> ready</span>
+        <span class="coins" id="wallet">⊙ <b id="stCoins">0</b></span>
+      </div>
+    </div>
+
+    <div class="filters" id="filters"></div>
+    <div class="catalog" id="catalog"></div>
+  </main>
+
+  <!-- =================== CREATOR =================== -->
+  <aside class="panel">
+    <section>
+      <h2>// Conjure New Object</h2>
+      <div class="ptag">sketch what the room should provide.</div>
+
+      <div class="field"><label>Name</label><input id="nName" maxlength="22" placeholder="e.g. Tea Station"></div>
+      <div class="row2">
+        <div class="field"><label>Category</label>
+          <select id="nCat">
+            <option>Furniture</option><option>Seating</option><option>Audio</option>
+            <option>Workspace</option><option>Greenery</option><option>Lighting</option>
+            <option>Comfort</option><option>Tech</option><option>Curio</option>
+          </select>
+        </div>
+        <div class="field"><label>Cost ⊙</label><input id="nCost" type="number" min="0" value="50"></div>
+      </div>
+      <div class="field"><label>Effect (optional)</label><input id="nFx" maxlength="34" placeholder="+happiness · streams Claude FM"></div>
+
+      <div class="editor-wrap">
+        <div class="editor" id="editor"></div>
+        <div class="editor-tools">
+          <button id="mPen" class="mode-on">Pen</button>
+          <button id="mDim">Shade</button>
+          <button id="bRand">Random</button>
+          <button id="bClear">Clear</button>
+        </div>
+        <div class="preview" id="preview"></div>
+        <button class="conjure" id="bAdd">CONJURE IT</button>
+      </div>
+      <div class="hint">Draw a silhouette in dots, name it, and conjure. New objects begin
+        as <b>ideas</b> — develop them in the studio until they're ready to acquire.</div>
+    </section>
+
+    <div class="foot">
+      <span>room of requirement · prototype</span>
+      <button id="bReset">Reset Studio</button>
+    </div>
+  </aside>
+</div>
+
+<div class="scanlines"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   TANGOCHI v2 — Room of Requirement · Object Studio (prototype)
+   Develop objects through stages, acquire them, and conjure new
+   ideas with a dot-matrix sketch pad. Vanilla; runs from file://.
+   ============================================================ */
+const SVGNS='http://www.w3.org/2000/svg';
+const $=s=>document.querySelector(s);
+const SAVE_KEY='tangochi_studio_v2';
+const EDIT_N=11;                     // dot editor grid size
+
+/* dot-matrix art parser ('#' lit, '+' dim) -> <svg> of circles */
+function dotArt(rows, cell=8, r=2.7){
+  const h=rows.length, w=Math.max(1,...rows.map(s=>s.length));
+  const svg=document.createElementNS(SVGNS,'svg');
+  svg.setAttribute('viewBox',`0 0 ${w*cell} ${h*cell}`);
+  svg.setAttribute('width', w*cell); svg.setAttribute('height', h*cell);
+  for(let y=0;y<h;y++){ const line=rows[y]||'';
+    for(let x=0;x<line.length;x++){ const ch=line[x];
+      if(ch!=='#'&&ch!=='+') continue;
+      const c=document.createElementNS(SVGNS,'circle');
+      c.setAttribute('cx',x*cell+cell/2); c.setAttribute('cy',y*cell+cell/2);
+      c.setAttribute('r',r); c.setAttribute('class','dot'+(ch==='+'?' dim':''));
+      svg.appendChild(c);
+    }
+  }
+  return svg;
+}
+
+/* ---- stages ---- */
+const STAGES=['idea','concept','prototype','ready'];
+const NEXT={idea:'concept',concept:'prototype',prototype:'ready'};
+const VERB={idea:'sketched',concept:'drafted',prototype:'compiled',ready:'realised'};
+const CONJURE_LINES={
+  concept:'The shape settles into a concept.',
+  prototype:'A working prototype takes form…',
+  ready:'The room reshapes — it is ready.',
+};
+
+/* ---- seed catalog (the named ones start mid-development) ---- */
+const SEED=[
+  {id:'bookshelf', name:'Bookshelf',    cat:'Furniture', cost:60,  stage:'prototype', fx:'+wisdom · stores your lore', art:[
+    '########','#+#+#+ #','#+#+# +#','########','# +#+#+#','#+#+# +#','########','#+ #+#+#','#+#+#+ #','########']},
+  {id:'chair', name:'Chair',            cat:'Seating',   cost:45,  stage:'concept', fx:'+comfort · a place to think', art:[
+    '##    ##','##    ##','########','#++++++#','#++++++#','#++++++#','########','#      #','#      #']},
+  {id:'music', name:'Music Player',     cat:'Audio',     cost:90,  stage:'idea', fx:'+happiness · streams Claude FM', art:[
+    '###########','#+#######+#','#+#     #+#','#+# ### #+#','#+# # # #+#','#+# ### #+#','#+#     #+#','#+#######+#','###########']},
+  {id:'desk', name:'Workstation',       cat:'Workspace', cost:70,  stage:'ready', fx:'+focus · where the work happens', art:[
+    ' ######## ',' #++++++# ',' #++++++# ',' #++++++# ',' ######## ','    ##    ','##########','#        #','#        #','#        #']},
+  {id:'plant', name:'Monstera',         cat:'Greenery',  cost:25,  stage:'ready', fx:'+calm · a breath of green', art:[
+    '   #  #   ','  ## ##   ',' #### ##  ','# #####  #',' ## ##### ','  #### ## ','   ####   ','    ##    ','   ####   ','  ##  ##  ','  ######  ']},
+  {id:'lamp', name:'Floor Lamp',        cat:'Lighting',  cost:30,  stage:'ready', fx:'+warmth · the one glow', art:[
+    '  ####  ',' #++++# ',' #++++# ','  ####  ','   ##   ','   ##   ','   ##   ','   ##   ','  ####  ',' ###### ']},
+  {id:'beanbag', name:'Beanbag',        cat:'Comfort',   cost:40,  stage:'concept', fx:'+rest · sink right in', art:[
+    '  ####  ',' #++++# ','#++++++#','#++++++#','#++++++#',' ###### ']},
+  {id:'server', name:'Server Rack',     cat:'Tech',      cost:110, stage:'prototype', fx:'+compute · hums quietly', art:[
+    '######','#+##+#','######','#+##+#','######','#+##+#','######','#+##+#','######']},
+  {id:'terminal', name:'Terminal',      cat:'Workspace', cost:80,  stage:'concept', fx:'+focus · ssh into flow', art:[
+    '###########','#+++++++++#','#+#######+#','#+#     #+#','#+#     #+#','#+#######+#','#+++++++++#','###########','    ###    ','   #####   ']},
+  {id:'turntable', name:'Turntable',    cat:'Audio',     cost:110, stage:'prototype', fx:'+calm · warm crackle', art:[
+    '##########','#++++++++#','#+######+#','#+#### #+#','#+#  # #+#','#+#### #+#','#+######+#','#++++++++#','##########']},
+  {id:'arcade', name:'Arcade Cabinet',  cat:'Curio',     cost:150, stage:'idea', fx:'+happiness · one more run', art:[
+    ' ####### ',' #+++++# ',' #+###+# ',' #+++++# ',' ####### ',' #+++++# ',' #+# #+# ',' #+++++# ',' ####### ',' #     # ',' ##   ## ']},
+  {id:'aquarium', name:'Aquarium',      cat:'Curio',     cost:130, stage:'concept', fx:'+calm · watch the fish', art:[
+    '##########','#++++++++#','#++#+++++#','#+++++#++#','#++#+++++#','#++++++#+#','#++++++++#','##########',' ######## ']},
+  {id:'lavalamp', name:'Lava Lamp',     cat:'Lighting',  cost:45,  stage:'concept', fx:'+warmth · hypnotic blobs', art:[
+    '  ###  ',' #+++# ',' #+#+# ',' #+++# ',' #+#+# ',' #+++# ','  ###  ','  ###  ',' ##### ']},
+  {id:'clock', name:'Wall Clock',       cat:'Curio',     cost:35,  stage:'ready', fx:'+patience · tick, tick', art:[
+    '  ###  ',' ##+## ','##+#+##','#++#++#','##+++##',' ##+## ','  ###  ']},
+  {id:'mug', name:'Coffee Mug',         cat:'Comfort',   cost:20,  stage:'ready', fx:'+energy · fuel for commits', art:[
+    '######  ','#++++#  ','#++++###','#++++# #','#++++###','#++++#  ','######  ']},
+  {id:'whiteboard', name:'Whiteboard',  cat:'Workspace', cost:55,  stage:'concept', fx:'+wisdom · plan it out', art:[
+    '###########','#+++++++++#','#+#+++##++#','#+++++++++#','#++##+++++#','#+++++++++#','###########','   #   #   ','   #   #   ']},
+  {id:'keyboard', name:'Mech Keyboard', cat:'Tech',      cost:65,  stage:'prototype', fx:'+speed · clack clack clack', art:[
+    '############','#+#+#+#+#+#+','############','#+#+#+#+#+#+','############','#++++++++++#','############']},
+  {id:'guitar', name:'Guitar',          cat:'Curio',     cost:95,  stage:'idea', fx:'+happiness · strum a tune', art:[
+    '   ##  ','   #   ','   #   ','   #   ','  ###  ',' #+++# ','#++#++#',' #+#+# ',' #+++# ','  ###  ']},
+  {id:'fridge', name:'Mini Fridge',     cat:'Comfort',   cost:85,  stage:'concept', fx:'+energy · cold brew ready', art:[
+    '########','#++++++#','#+++++#+','#++++++#','########','#++++++#','#+++++#+','#++++++#','########']},
+  {id:'terrarium', name:'Terrarium',    cat:'Greenery',  cost:50,  stage:'ready', fx:'+calm · a tiny world', art:[
+    '   ###   ','  #+++#  ',' #+#+#+# ',' #+++++# ','#+++#+++#','#++###++#','#+++++++#','#########']},
+  {id:'neon', name:'Neon Sign',         cat:'Lighting',  cost:70,  stage:'idea', fx:'+vibe · soft glow', art:[
+    '##########','#++++++++#','#+#+++++ #','#++#+##++#','#+++##+#+#','#++++++++#','##########','   #  #   ']},
+  {id:'cactus', name:'Potted Cactus',   cat:'Greenery',  cost:30,  stage:'ready', fx:'+calm · low maintenance', art:[
+    '   #   ','#  #  #','#  #  #','## # ##',' # # # ',' ##### ',' #+++# ',' #+++# ',' ##### ']},
+  {id:'telescope', name:'Telescope',    cat:'Curio',     cost:140, stage:'prototype', fx:'+wisdom · gaze outward', art:[
+    '      ###','     ##+#','    ##+# ','   ##+#  ','  ##+#   ','  ###    ',' # # #   ','#  #  #  ']},
+  {id:'petbed', name:'Pet Bed',         cat:'Comfort',   cost:40,  stage:'ready', fx:'+rest · the pet approves', art:[
+    ' ####### ','#+++++++#','#+#####+#','#+#+++#+#','#+#+++#+#','#+#####+#','#+++++++#',' ####### ']},
+];
+
+/* ---- state ---- */
+let DATA=load();
+function load(){
+  try{ const raw=localStorage.getItem(SAVE_KEY); if(raw){ const d=JSON.parse(raw);
+    if(d&&d.items){
+      const have=new Set(d.items.map(o=>o.id));         // surface newly-added seed objects
+      SEED.forEach(o=>{ if(!have.has(o.id)) d.items.push({...o,owned:false}); });
+      return d;
+    } } }catch(e){}
+  return { coins:250, items:SEED.map(o=>({...o,owned:false})) };
+}
+function save(){ try{ localStorage.setItem(SAVE_KEY,JSON.stringify(DATA)); }catch(e){} }
+
+/* ---- toast ---- */
+let toastT=null;
+function toast(msg){ const el=$('#toast'); el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2200); }
+
+/* ---- motion helpers (all gated by reduced-motion; transform/opacity only) ---- */
+const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+let coinRAF=null;
+function animateCoins(from,to){ const el=$('#stCoins'); if(!el) return;
+  if(reduced()){ el.textContent=to; return; }
+  cancelAnimationFrame(coinRAF); const t0=performance.now(),dur=420;
+  (function step(now){ const k=Math.min(1,(now-t0)/dur);
+    el.textContent=Math.round(from+(to-from)*(1-Math.pow(1-k,3)));
+    if(k<1) coinRAF=requestAnimationFrame(step); })(t0);
+}
+function floatCoinDelta(n){ if(reduced()) return; const w=$('#wallet'); if(!w) return;
+  const r=w.getBoundingClientRect(); const el=document.createElement('div'); el.className='coinfloat';
+  el.textContent='−⊙'+n; el.style.left=(r.left+r.width/2)+'px'; el.style.top=r.top+'px';
+  document.body.appendChild(el);
+  el.animate([{opacity:0,transform:'translate(-50%,2px)'},{opacity:1,transform:'translate(-50%,-8px)',offset:.25},
+    {opacity:0,transform:'translate(-50%,-30px)'}],{duration:950,easing:'cubic-bezier(0.16,1,0.3,1)'}).onfinish=()=>el.remove();
+}
+function cardPop(el){ if(!el||reduced()) return;
+  el.animate([{transform:'scale(1)'},{transform:'scale(1.06)',offset:.4},{transform:'scale(1)'}],
+    {duration:380,easing:'cubic-bezier(0.34,1.56,0.64,1)'}); }
+function sparkleBurst(el){ if(!el||reduced()) return; const r=el.getBoundingClientRect();
+  const cx=r.left+r.width/2, cy=r.top+r.height*0.42;
+  for(let i=0;i<8;i++){ const s=document.createElement('div'); s.className='spark';
+    s.style.left=cx+'px'; s.style.top=cy+'px'; document.body.appendChild(s);
+    const a=(Math.PI*2*i)/8+Math.random()*0.4, d=24+Math.random()*22;
+    s.animate([{transform:'translate(-50%,-50%) scale(1)',opacity:1},
+      {transform:`translate(calc(-50% + ${Math.cos(a)*d}px),calc(-50% + ${Math.sin(a)*d}px)) scale(0)`,opacity:0}],
+      {duration:520,easing:'cubic-bezier(0.16,1,0.3,1)'}).onfinish=()=>s.remove();
+  }
+}
+function shakeWallet(){ const w=$('#wallet'); if(!w||reduced()) return;
+  w.animate([{transform:'translateX(0)'},{transform:'translateX(-4px)'},{transform:'translateX(4px)'},
+    {transform:'translateX(-3px)'},{transform:'translateX(0)'}],{duration:320,easing:'cubic-bezier(0.4,0,0.2,1)'}); }
+function dotDraw(card){ if(!card||reduced()) return; card.querySelectorAll('.art .dot').forEach((dt,i)=>
+  dt.animate([{opacity:0,transform:'scale(0)'},{opacity:1,transform:'scale(1)'}],
+    {duration:240,delay:Math.min(i*7,200),easing:'cubic-bezier(0.16,1,0.3,1)',fill:'backwards'})); }
+
+/* ---- filters ---- */
+const FILTERS=[['all','All'],['idea','Ideas'],['dev','In Dev'],['ready','Ready'],['owned','In Room']];
+let activeFilter='all';
+function buildFilters(){            // built once; clicks toggle classes so the underline animates
+  const box=$('#filters'); box.innerHTML='';
+  FILTERS.forEach(([k,l])=>{ const b=document.createElement('button'); b.textContent=l; b.dataset.k=k;
+    b.className=k===activeFilter?'on':'';
+    b.onclick=()=>{ if(activeFilter===k) return; activeFilter=k;
+      [...box.children].forEach(x=>x.classList.toggle('on',x.dataset.k===k)); renderCatalog(); };
+    box.appendChild(b); });
+}
+function matches(o){
+  if(activeFilter==='all') return true;
+  if(activeFilter==='owned') return o.owned;
+  if(activeFilter==='ready') return o.stage==='ready' && !o.owned;
+  if(activeFilter==='dev') return o.stage==='concept'||o.stage==='prototype';
+  if(activeFilter==='idea') return o.stage==='idea';
+  return true;
+}
+
+/* ---- render ---- */
+const stageIndex=s=>STAGES.indexOf(s);
+function refreshStats(){
+  $('#stTotal').textContent=DATA.items.length;
+  $('#stReady').textContent=DATA.items.filter(o=>o.stage==='ready').length;
+}
+function rebuildAction(card,o){
+  let act=card.querySelector('.act');
+  if(!act){ act=document.createElement('button'); act.className='act'; card.appendChild(act); }
+  act.classList.remove('acquire','owned'); act.onclick=null;
+  if(o.owned){ act.textContent='✓ in room'; act.classList.add('owned'); }
+  else if(o.stage==='ready'){ act.textContent=`acquire ⊙${o.cost}`; act.classList.add('acquire'); act.onclick=()=>acquire(o.id); }
+  else { act.textContent='develop →'; act.onclick=()=>develop(o.id); }
+}
+function buildCard(o){
+  const card=document.createElement('div');
+  card.className='card s-'+o.stage+(o.stage==='ready'?' ready':''); card.dataset.id=o.id;
+  const badge=document.createElement('div'); badge.className='badge';
+  badge.innerHTML='<span class="pip"></span><span class="stg">'+o.stage+'</span>'; card.appendChild(badge);
+  if(o.custom){ const del=document.createElement('div'); del.className='del'; del.textContent='×';
+    del.title='remove'; del.onclick=e=>{e.stopPropagation();removeObj(o.id);}; card.appendChild(del); }
+  const art=document.createElement('div'); art.className='art'; art.appendChild(dotArt(o.art)); card.appendChild(art);
+  const nm=document.createElement('div'); nm.className='nm'; nm.textContent=o.name; card.appendChild(nm);
+  const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${o.cat} · ⊙${o.cost}`; card.appendChild(meta);
+  const fx=document.createElement('div'); fx.className='fx'; fx.textContent=o.fx||''; card.appendChild(fx);
+  const track=document.createElement('div'); track.className='track'; const idx=stageIndex(o.stage);
+  for(let i=0;i<4;i++){ const seg=document.createElement('div'); seg.className='seg'+(i<=idx?' on':''); track.appendChild(seg); }
+  card.appendChild(track);
+  rebuildAction(card,o);
+  return card;
+}
+function renderCatalog(){
+  refreshStats(); $('#stCoins').textContent=DATA.coins;
+  const gridEl=$('#catalog'); gridEl.innerHTML='';
+  const list=DATA.items.filter(matches);
+  if(!list.length){ const e=document.createElement('div'); e.className='hint';
+    e.style.gridColumn='1/-1'; e.textContent='nothing here yet — conjure an object →'; gridEl.appendChild(e); return; }
+  const anim=!reduced();
+  list.forEach((o,i)=>{ const card=buildCard(o);
+    if(anim){ card.classList.add('enter'); card.style.animationDelay=Math.min(i*30,450)+'ms';
+      card.addEventListener('animationend',()=>{ card.classList.remove('enter'); card.style.animationDelay=''; },{once:true}); }
+    gridEl.appendChild(card);
+  });
+}
+function updateCard(o){
+  const card=$(`.card[data-id="${o.id}"]`); if(!card) return;
+  if(!matches(o)){                                   // leaves the active filter -> animate out, remove
+    const gone=()=>{ card.remove(); refreshStats(); if(!$('#catalog').querySelector('.card')) renderCatalog(); };
+    if(reduced()){ gone(); return; }
+    card.animate([{opacity:1,transform:'none'},{opacity:0,transform:'translateY(8px) scale(.96)'}],
+      {duration:240,easing:'cubic-bezier(0.55,0,1,0.45)'}).onfinish=gone;
+    return;
+  }
+  card.className='card s-'+o.stage+(o.stage==='ready'?' ready':''); card.dataset.id=o.id;
+  const idx=stageIndex(o.stage);
+  [...card.querySelectorAll('.track .seg')].forEach((seg,i)=>seg.classList.toggle('on',i<=idx));
+  const stg=card.querySelector('.stg'); if(stg) stg.textContent=o.stage;
+  rebuildAction(card,o); refreshStats();
+}
+
+/* ---- actions ---- */
+function develop(id){
+  const o=DATA.items.find(x=>x.id===id); if(!o||!NEXT[o.stage]) return;
+  o.stage=NEXT[o.stage]; save();
+  toast(CONJURE_LINES[o.stage]||'developed.');
+  const card=$(`.card[data-id="${id}"]`), willStay=matches(o);
+  updateCard(o);                                     // fills next track segment in place
+  if(card && willStay && !reduced()){ card.classList.add('conjuring');
+    setTimeout(()=>card.classList.remove('conjuring'),700); dotDraw(card); }
+}
+function acquire(id){
+  const o=DATA.items.find(x=>x.id===id); if(!o||o.owned) return;
+  if(DATA.coins<o.cost){ toast('the room asks for more coins'); shakeWallet(); return; }
+  const from=DATA.coins; DATA.coins-=o.cost; o.owned=true; save();
+  toast(`✦ ${o.name} acquired — added to the room`);
+  const card=$(`.card[data-id="${id}"]`), willStay=matches(o);
+  if(card){ sparkleBurst(card); if(willStay) cardPop(card); }   // magic pop
+  animateCoins(from,DATA.coins); floatCoinDelta(o.cost);
+  updateCard(o);
+}
+function removeObj(id){ const card=$(`.card[data-id="${id}"]`);
+  DATA.items=DATA.items.filter(x=>x.id!==id); save();
+  const done=()=>{ if(card&&card.isConnected) card.remove(); refreshStats(); toast('idea dispelled');
+    if(!$('#catalog').querySelector('.card')) renderCatalog(); };
+  if(card && !reduced()){ card.animate([{opacity:1,transform:'none'},{opacity:0,transform:'scale(.9)'}],
+    {duration:220,easing:'cubic-bezier(0.55,0,1,0.45)'}).onfinish=done; } else done();
+}
+
+/* ============================================================
+   DOT EDITOR (sketch new objects)
+   ============================================================ */
+let grid=Array.from({length:EDIT_N},()=>Array(EDIT_N).fill(0));  // 0 empty,1 on,2 dim
+let penMode=1, painting=false;
+function buildEditor(){
+  const ed=$('#editor'); ed.style.gridTemplateColumns=`repeat(${EDIT_N},1fr)`; ed.innerHTML='';
+  for(let y=0;y<EDIT_N;y++) for(let x=0;x<EDIT_N;x++){
+    const c=document.createElement('div'); c.className='cell'; c.dataset.x=x; c.dataset.y=y;
+    c.addEventListener('pointerdown',e=>{ painting=true; paint(x,y); ed.setPointerCapture(e.pointerId); });
+    c.addEventListener('pointerenter',()=>{ if(painting) paint(x,y); });
+    ed.appendChild(c);
+  }
+  window.addEventListener('pointerup',()=>painting=false);
+  paintRefresh();
+}
+function paint(x,y){ grid[y][x] = grid[y][x]===penMode ? 0 : penMode; paintRefresh();
+  if(!reduced()){ const cell=$(`.cell[data-x="${x}"][data-y="${y}"]`);
+    if(cell){ cell.classList.remove('pop'); void cell.offsetWidth; cell.classList.add('pop'); } }
+  updatePreview(); }
+function updatePreview(){ const p=$('#preview'); if(!p) return; p.innerHTML='';
+  const art=gridToArt(); if(!art){ p.classList.remove('has'); return; }
+  p.classList.add('has'); p.appendChild(dotArt(art,4,1.6)); }
+function paintRefresh(){
+  [...$('#editor').children].forEach(c=>{ const v=grid[+c.dataset.y][+c.dataset.x];
+    c.className='cell'+(v===1?' on':v===2?' dim':''); });
+}
+function gridToArt(){
+  // trim empty rows/cols to a tight silhouette
+  let rows=grid.map(r=>r.map(v=>v===1?'#':v===2?'+':' ').join(''));
+  while(rows.length && !rows[0].trim()) rows.shift();
+  while(rows.length && !rows[rows.length-1].trim()) rows.pop();
+  if(!rows.length) return null;
+  let lo=99,hi=0; rows.forEach(r=>{ for(let i=0;i<r.length;i++) if(r[i]!==' '){lo=Math.min(lo,i);hi=Math.max(hi,i);} });
+  return rows.map(r=>r.slice(lo,hi+1));
+}
+function clearGrid(){ grid=Array.from({length:EDIT_N},()=>Array(EDIT_N).fill(0)); paintRefresh(); updatePreview(); }
+function randomGrid(){
+  clearGrid(); const mid=(EDIT_N-1)/2;
+  for(let y=1;y<EDIT_N-1;y++) for(let x=0;x<=mid;x++){
+    if(Math.random()<0.5){ const v=Math.random()<0.7?1:2; grid[y][x]=v; grid[y][EDIT_N-1-x]=v; }
+  }
+  paintRefresh(); updatePreview();
+  if(!reduced()){ [...$('#editor').children].filter(c=>c.classList.contains('on')||c.classList.contains('dim'))
+    .forEach((c,i)=>c.animate([{transform:'scale(0)'},{transform:'scale(1)'}],
+      {duration:200,delay:Math.min(i*9,260),easing:'cubic-bezier(0.34,1.56,0.64,1)'})); }
+}
+
+/* ---- conjure (add new) ---- */
+function addObject(){
+  const name=$('#nName').value.trim();
+  const art=gridToArt();
+  if(!name){ toast('give your object a name'); $('#nName').focus(); return; }
+  if(!art){ toast('sketch something first'); return; }
+  const id='c_'+Date.now().toString(36);
+  DATA.items.unshift({ id, name, cat:$('#nCat').value, cost:Math.max(0,+$('#nCost').value||0),
+    stage:'idea', fx:$('#nFx').value.trim(), art, custom:true, owned:false });
+  save();
+  $('#nName').value=''; $('#nFx').value=''; clearGrid();
+  activeFilter='all'; [...$('#filters').children].forEach(x=>x.classList.toggle('on',x.dataset.k==='all'));
+  renderCatalog();
+  const card=$(`.card[data-id="${id}"]`);
+  if(card){ card.scrollIntoView({behavior:reduced()?'auto':'smooth',block:'nearest'}); dotDraw(card); }
+  toast(`✎ ${name} sketched as an idea`);
+}
+
+/* ---- wiring ---- */
+$('#mPen').onclick=function(){ penMode=1; this.classList.add('mode-on'); $('#mDim').classList.remove('mode-on'); };
+$('#mDim').onclick=function(){ penMode=2; this.classList.add('mode-on'); $('#mPen').classList.remove('mode-on'); };
+$('#bRand').onclick=randomGrid;
+$('#bClear').onclick=clearGrid;
+$('#bAdd').onclick=addObject;
+$('#nName').addEventListener('keydown',e=>{ if(e.key==='Enter') addObject(); });
+$('#bReset').onclick=()=>{ if(confirm('Reset the studio to its starting objects?')){
+  localStorage.removeItem(SAVE_KEY); DATA=load(); activeFilter='all';
+  buildFilters(); renderCatalog(); toast('studio reset'); } };
+
+/* ---- boot ---- */
+buildFilters();
+buildEditor();
+renderCatalog();
+updatePreview();
+</script>
+</body>
+</html>

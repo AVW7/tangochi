@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>TANGOCHI v2 — Room Prototype</title>
+<title>TANGOCHI v2 — Room Prototype (Three.js)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -11,25 +11,17 @@
 :root{
   --bg-0:#07080a; --bg-1:#0d0f12; --bg-2:#14171c; --bg-3:#1c2128;
   --line:rgba(255,255,255,0.07); --line-strong:rgba(255,255,255,0.14);
-  --dot-on:#e9e9ec; --dot-dim:rgba(233,233,236,0.26); --dot-off:rgba(255,255,255,0.05);
+  --dot-on:#e9e9ec; --dot-dim:rgba(233,233,236,0.26);
   --text-0:rgba(255,255,255,0.95); --text-1:rgba(255,255,255,0.60); --text-2:rgba(255,255,255,0.36);
-  --accent:#5ee3ff; --warm:#ffb347; --pet:#e8643c;
-
-  /* live room orientation — driven by drag/parallax */
-  --ax:58deg;   /* tilt toward viewer */
-  --az:-45deg;  /* spin (azimuth)     */
-
-  --tile:72px;
-  --grid:5;
-  --wall:128px;
-  --tint:0;          /* day/night darkness 0..1 */
-  --tint-hue:0;      /* warm/cool shift          */
+  --accent:#ffb347;            /* the one accent — warm/orange, matches the pet */
+  --pet:#e8643c;
+  --tint:0;                    /* day/night darkness 0..1 (extra grayscale dim) */
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{
   height:100%;
   background:
-    radial-gradient(ellipse 70% 50% at 50% -10%, rgba(94,227,255,0.05), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 50% -10%, rgba(255,179,71,0.04), transparent 60%),
     var(--bg-0);
   color:var(--text-0);
   font-family:'JetBrains Mono',monospace;
@@ -47,121 +39,36 @@ html,body{
 
 /* ── stage ── */
 .stage-wrap{position:relative;overflow:hidden;}
-.fm-tag{position:absolute;top:18px;right:22px;z-index:5;font-size:11px;letter-spacing:.14em;color:var(--text-1);
-  display:flex;gap:8px;align-items:center;}
+#view{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none;z-index:1;}
+#view.grabbing{cursor:grabbing;}
+.fm-tag{position:absolute;top:18px;right:22px;z-index:65;font-size:clamp(9px,1.7vw,11px);letter-spacing:.14em;color:var(--text-1);
+  display:flex;gap:8px;align-items:center;max-width:60vw;}
 .fm-tag b{font-weight:500;color:var(--text-0);}
 .fm-tag .live{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);
   animation:pulse 1.6s infinite ease-in-out;}
-.title{position:absolute;top:16px;left:22px;z-index:5;}
-.title .name{font-family:'Press Start 2P',monospace;font-size:15px;letter-spacing:.02em;}
-.title .sub{font-size:10px;letter-spacing:.22em;color:var(--text-2);margin-top:7px;text-transform:uppercase;}
+.title{position:absolute;top:16px;left:22px;z-index:65;}
+.title .name{font-family:'Press Start 2P',monospace;font-size:clamp(11px,2.4vw,15px);letter-spacing:.02em;}
+.title .sub{font-size:clamp(8px,1.5vw,10px);letter-spacing:.22em;color:var(--text-2);margin-top:7px;text-transform:uppercase;}
 @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
 
-.scene{position:absolute;inset:0;perspective:1100px;perspective-origin:50% 42%;cursor:grab;}
-.scene.dragging{cursor:grabbing;}
-
-#world{
-  position:absolute;left:50%;top:54%;
-  transform-style:preserve-3d;
-  transform:translate(-50%,-50%) rotateX(var(--ax)) rotateZ(var(--az));
-  transition:transform .12s linear;
-}
-.no-trans #world{transition:none;}
-
-/* the floor is the parent coordinate space (0..grid*tile) */
-.floor{
-  position:absolute;
-  width:calc(var(--grid) * var(--tile));
-  height:calc(var(--grid) * var(--tile));
-  /* center the floor on the world origin */
-  left:calc(var(--grid) * var(--tile) / -2);
-  top:calc(var(--grid) * var(--tile) / -2);
-  transform-style:preserve-3d;
-  background:var(--bg-2);
-  background-image:radial-gradient(var(--dot-dim) 1.1px, transparent 1.6px);
-  background-size:7px 7px;
-  box-shadow:inset 0 0 0 1px var(--line);
-}
-/* iso grid tiles for placement + faint lines */
-.tile{position:absolute;width:var(--tile);height:var(--tile);
-  box-shadow:inset 0 0 0 1px var(--line);
-  transition:background .15s;}
-.tile.hot{background:rgba(94,227,255,0.10);box-shadow:inset 0 0 0 1px rgba(94,227,255,.4);}
-
-/* walls rise out of the floor edges */
-.wall{position:absolute;left:0;top:0;
-  background:var(--bg-1);
-  background-image:radial-gradient(var(--dot-dim) 1.1px, transparent 1.6px);
-  background-size:7px 7px;
-  box-shadow:inset 0 0 0 1px var(--line);}
-.wall.back{width:calc(var(--grid)*var(--tile));height:var(--wall);
-  transform-origin:0 0;transform:rotateX(-90deg);}
-.wall.left{width:var(--wall);height:calc(var(--grid)*var(--tile));
-  transform-origin:0 0;transform:rotateY(-90deg);
-  background-image:radial-gradient(rgba(233,233,236,0.18) 1.1px, transparent 1.6px);}
-.wall .skirt{position:absolute;left:0;right:0;bottom:0;height:10px;background:rgba(255,255,255,0.04);}
-
-/* wall art (coplanar with wall) */
-.wall-art{position:absolute;}
-.wall .window{position:absolute;background:linear-gradient(160deg,#0f1c2e,#1b2c44);
-  box-shadow:inset 0 0 0 2px rgba(255,255,255,.12), 0 0 24px rgba(94,227,255,.12);}
-.wall .window .pane{position:absolute;inset:8px;background-image:
-  linear-gradient(rgba(255,255,255,.10) 1px,transparent 1px),
-  linear-gradient(90deg,rgba(255,255,255,.10) 1px,transparent 1px);
-  background-size:50% 50%;}
-.wall .window .moon{position:absolute;width:18px;height:18px;border-radius:50%;
-  right:14px;top:12px;background:radial-gradient(circle at 38% 36%,#fff,#c9d6e6);
-  box-shadow:0 0 14px rgba(200,220,255,.6);opacity:calc(0.15 + var(--tint)*0.85);}
-
-/* ── object standees (billboarded to face camera) ── */
-.obj{position:absolute;transform-origin:0 0;transform-style:preserve-3d;
-  transform:rotateZ(calc(var(--az)*-1)) rotateX(calc(var(--ax)*-1));
-  pointer-events:none;}
-.obj .card{position:absolute;left:0;top:0;transform:translate(-50%,-100%);
-  pointer-events:auto;cursor:pointer;filter:drop-shadow(0 0 0 transparent);
-  transition:transform .18s;}
-.obj .card:hover{transform:translate(-50%,-104%) scale(1.04);}
-.obj svg{display:block;overflow:visible;}
-.obj .dot{fill:var(--dot-on);}
-.obj .dot.dim{fill:var(--dot-dim);}
-.obj .lbl{position:absolute;left:50%;bottom:100%;transform:translate(-50%,-2px);
-  font-size:8px;letter-spacing:.12em;color:var(--text-2);white-space:nowrap;opacity:0;transition:opacity .15s;text-transform:uppercase;}
-.obj .card:hover .lbl{opacity:1;}
-
-/* lamp glow — the one warmth in the room */
-.obj .glow{position:absolute;left:50%;top:0;width:80px;height:80px;border-radius:50%;
-  transform:translate(-50%,-60%);pointer-events:none;
-  background:radial-gradient(circle,rgba(255,179,71,.55),transparent 68%);
-  opacity:calc(0.35 + (1 - var(--tint))*0.0 + var(--tint)*0.65);mix-blend-mode:screen;}
-
-/* flat rug on the floor */
-.rug{position:absolute;transform-origin:center;transform:translate(-50%,-50%) rotate(45deg);
-  background:var(--bg-3);background-image:radial-gradient(var(--dot-dim) 1.2px,transparent 1.7px);
-  background-size:8px 8px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.06);cursor:pointer;pointer-events:auto;}
-
-/* ground shadow (lies on floor) */
-.shadow{position:absolute;width:46px;height:46px;border-radius:50%;
-  transform:translate(-50%,-50%) scale(1,0.5);background:radial-gradient(circle,rgba(0,0,0,.45),transparent 70%);
-  pointer-events:none;}
-
-/* ── pet ── */
-.pet{position:absolute;transform-origin:0 0;transform-style:preserve-3d;
-  transform:rotateZ(calc(var(--az)*-1)) rotateX(calc(var(--ax)*-1));
-  transition:left 1.6s linear, top 1.6s linear;pointer-events:none;z-index:50;}
-.pet canvas{position:absolute;left:0;top:0;transform:translate(-50%,-100%);
-  image-rendering:pixelated;filter:drop-shadow(0 3px 0 rgba(0,0,0,.25));}
-.pet .speech{position:absolute;left:0;bottom:100%;transform:translate(-50%,-6px);
-  background:var(--bg-2);border:1px solid var(--line-strong);border-radius:6px;
-  padding:6px 9px;font-size:9px;letter-spacing:.04em;white-space:nowrap;color:var(--text-0);
-  box-shadow:0 8px 18px -8px #000;opacity:0;transition:opacity .2s;}
-.pet .speech.show{opacity:1;}
-
-/* day/night tint over the whole stage */
+/* day/night tint + CRT over the canvas (DOM overlays) */
 .tint{position:absolute;inset:0;pointer-events:none;z-index:60;
-  background:rgba(6,8,14,var(--tint));
+  background:rgba(5,6,8,var(--tint));
   box-shadow:inset 0 0 140px 30px rgba(0,0,0,calc(0.25 + var(--tint)*0.4));}
 .scanlines{position:absolute;inset:0;pointer-events:none;z-index:61;opacity:.35;
   background:repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.18) 2px 3px);}
+
+/* HTML overlays projected from 3D (speech + hover labels) */
+#overlay{position:absolute;inset:0;pointer-events:none;z-index:62;}
+.speech{position:absolute;transform:translate(-50%,-100%);
+  background:var(--bg-2);border:1px solid var(--line-strong);border-radius:6px;
+  padding:6px 9px;font-size:9px;letter-spacing:.04em;white-space:nowrap;color:var(--text-0);
+  box-shadow:0 8px 18px -8px #000;opacity:0;transition:opacity .2s;}
+.speech.show{opacity:1;}
+.lbl{position:absolute;transform:translate(-50%,-100%);
+  font-size:8px;letter-spacing:.12em;color:var(--text-2);white-space:nowrap;
+  text-transform:uppercase;opacity:0;transition:opacity .15s;}
+.lbl.show{opacity:1;}
 
 /* ── side panel ── */
 .panel{background:var(--bg-1);border-left:1px solid var(--line);
@@ -183,7 +90,7 @@ html,body{
   padding:10px 4px 8px;cursor:pointer;color:var(--text-1);display:flex;flex-direction:column;
   align-items:center;gap:6px;transition:all .15s;}
 .tray button:hover{border-color:var(--line-strong);color:var(--text-0);transform:translateY(-1px);}
-.tray button.active{border-color:var(--accent);color:var(--text-0);background:rgba(94,227,255,.07);}
+.tray button.active{border-color:var(--accent);color:var(--text-0);background:rgba(255,179,71,.09);}
 .tray button svg{width:30px;height:34px;}
 .tray button .t{font-size:8px;letter-spacing:.08em;text-transform:uppercase;}
 .hint{font-size:9px;color:var(--text-2);line-height:1.6;margin-top:10px;}
@@ -199,8 +106,29 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;bac
 .toggle button{flex:1;background:var(--bg-2);border:1px solid var(--line);border-radius:6px;
   padding:9px 6px;cursor:pointer;color:var(--text-1);font-size:9px;letter-spacing:.1em;text-transform:uppercase;transition:all .15s;}
 .toggle button:hover{border-color:var(--line-strong);color:var(--text-0);}
-.toggle button.on{border-color:var(--accent);color:var(--text-0);background:rgba(94,227,255,.07);}
+.toggle button.on{border-color:var(--accent);color:var(--text-0);background:rgba(255,179,71,.09);}
 .foot{padding:14px 18px;font-size:9px;color:var(--text-2);letter-spacing:.06em;}
+
+/* ── responsive: keep a usable stage + reachable controls on small/touch screens ── */
+@media(max-width:820px){
+  .stage-wrap{min-height:48vh;}            /* don't let the 3D view collapse when stacked */
+  .panel{max-height:46vh;}
+}
+@media(pointer:coarse){                    /* fingers, not a mouse: bigger hit targets */
+  .tray button{min-height:56px;padding:12px 4px;}
+  .toggle button{min-height:44px;}
+  input[type=range]{height:6px;}
+  input[type=range]::-webkit-slider-thumb{width:18px;height:18px;}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;}
+}
+@media(max-width:520px){
+  .title{top:12px;left:14px;}
+  .fm-tag{top:12px;right:14px;gap:6px;}
+  .fm-tag .fm-sub{display:none;}           /* drop the suffix so it won't collide with the title */
+  .panel section{padding:13px 14px;}
+  .tray{gap:6px;}
+  .foot{padding:12px 14px;}
+}
 </style>
 </head>
 <body>
@@ -208,23 +136,15 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;bac
 
 <div class="app">
   <!-- =================== STAGE =================== -->
-  <div class="stage-wrap">
+  <div class="stage-wrap" id="stage">
     <div class="title">
       <div class="name">TANGOCHI</div>
-      <div class="sub">// v2 room · hybrid 3d</div>
+      <div class="sub">// v2 room · three.js</div>
     </div>
-    <div class="fm-tag"><span class="live"></span>♫ <b>CLAUDE&nbsp;FM</b> · room building</div>
+    <div class="fm-tag"><span class="live"></span>♫ <b>CLAUDE&nbsp;FM</b><span class="fm-sub">&nbsp;· room building</span></div>
 
-    <div class="scene" id="scene">
-      <div id="world">
-        <!-- walls -->
-        <div class="wall left" id="wallLeft"><div class="skirt"></div></div>
-        <div class="wall back" id="wallBack"><div class="skirt"></div></div>
-        <!-- floor + tiles + objects injected here -->
-        <div class="floor" id="floor"></div>
-      </div>
-    </div>
-
+    <canvas id="view"></canvas>
+    <div id="overlay"></div>
     <div class="tint"></div>
     <div class="scanlines"></div>
   </div>
@@ -239,7 +159,9 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;bac
     <section>
       <h2>// Object Catalog</h2>
       <div class="tray" id="tray"></div>
-      <div class="hint">Pick an object, then click a floor tile to place it. Click a placed object to remove it.</div>
+      <div class="hint">Pick an object, then click a floor tile to place it. With nothing
+        picked, click a placed object to grab it, then click a tile to move it. Click the
+        pet to poke it. Drag to orbit · scroll to zoom · right-drag to pan.</div>
     </section>
 
     <section>
@@ -249,14 +171,16 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;bac
         <input type="range" id="tod" min="0" max="100" value="20">
       </div>
       <div class="ctrl">
-        <label>Camera Tilt <span class="v" id="tiltVal">58</span></label>
-        <input type="range" id="tilt" min="46" max="68" value="58">
-      </div>
-      <div class="ctrl">
         <label>Wall Art</label>
         <div class="toggle">
           <button id="tWindow" class="on">Window</button>
           <button id="tPoster" class="on">Poster</button>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label>Camera</label>
+        <div class="toggle">
+          <button id="tView">Reset View</button>
         </div>
       </div>
       <div class="ctrl">
@@ -268,229 +192,332 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;bac
       </div>
     </section>
 
-    <div class="foot">drag the room to orbit · monochrome by design · the pet is the only colour</div>
+    <div class="foot">drag to orbit · scroll to zoom · monochrome by design · the pet is the only colour</div>
   </aside>
 </div>
 
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
 <script>
 /* ============================================================
-   TANGOCHI v2 — Hybrid CSS-3D dot-matrix room (prototype)
-   Vanilla, no libraries, runs from file://
+   TANGOCHI v2 — Three.js dot-matrix room (prototype)
+   Real 3D: free orbit + zoom + pan, place/move furniture,
+   click the pet. Monochrome room; the pet is the only colour.
    ============================================================ */
 const SVGNS='http://www.w3.org/2000/svg';
-const GRID=5, TILE=72;
+const GRID=5, TILE=72, ROOM=GRID*TILE, HALF=ROOM/2, WALL=128;
 const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const reduced=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/* ---- dot-matrix art parser ----------------------------------
-   '#' = lit dot, '+' = dim dot, ' '/'.' = empty.
-   Returns an <svg> of circles, sized to the grid.            */
+/* tile <-> world helpers (floor centred on origin, y up) */
+function tileToWorld(c,r){ return { x:(c+0.5)*TILE-HALF, z:(r+0.5)*TILE-HALF }; }
+function worldToTile(x,z){ return { c:clamp(Math.floor((x+HALF)/TILE),0,GRID-1),
+                                    r:clamp(Math.floor((z+HALF)/TILE),0,GRID-1) }; }
+
+/* ---- dot-matrix art parser (SVG, used for the tray icons) ---- */
 function dotArt(rows, cell=7, r=2.4){
   const h=rows.length, w=Math.max(...rows.map(s=>s.length));
   const svg=document.createElementNS(SVGNS,'svg');
   svg.setAttribute('viewBox',`0 0 ${w*cell} ${h*cell}`);
-  svg.setAttribute('width', w*cell);
-  svg.setAttribute('height', h*cell);
-  for(let y=0;y<h;y++){
-    const line=rows[y];
-    for(let x=0;x<line.length;x++){
-      const ch=line[x];
+  svg.setAttribute('width', w*cell); svg.setAttribute('height', h*cell);
+  for(let y=0;y<h;y++){ const line=rows[y];
+    for(let x=0;x<line.length;x++){ const ch=line[x];
       if(ch!=='#'&&ch!=='+') continue;
       const c=document.createElementNS(SVGNS,'circle');
-      c.setAttribute('cx',x*cell+cell/2);
-      c.setAttribute('cy',y*cell+cell/2);
-      c.setAttribute('r',r);
-      c.setAttribute('class','dot'+(ch==='+'?' dim':''));
+      c.setAttribute('cx',x*cell+cell/2); c.setAttribute('cy',y*cell+cell/2);
+      c.setAttribute('r',r); c.setAttribute('fill', ch==='+'?'rgba(233,233,236,0.30)':'#e9e9ec');
       svg.appendChild(c);
     }
   }
   return svg;
 }
+/* ---- dot-matrix art -> transparent canvas (used for 3D sprites) ---- */
+function dotArtCanvas(rows, cell=10, r=3.6){
+  const h=rows.length, w=Math.max(...rows.map(s=>s.length));
+  const cv=document.createElement('canvas'); cv.width=w*cell; cv.height=h*cell;
+  const g=cv.getContext('2d');
+  for(let y=0;y<h;y++){ const line=rows[y];
+    for(let x=0;x<line.length;x++){ const ch=line[x];
+      if(ch!=='#'&&ch!=='+') continue;
+      g.fillStyle = ch==='+'?'rgba(233,233,236,0.30)':'#e9e9ec';
+      g.beginPath(); g.arc(x*cell+cell/2,y*cell+cell/2,r,0,Math.PI*2); g.fill();
+    }
+  }
+  return {cv, w, h};
+}
 
 /* ---- object catalog (design-first) -------------------------- */
 const DEFS={
-  desk:{ name:'Workstation', glow:false, art:[
-    ' ######## ',
-    ' #++++++# ',
-    ' #++++++# ',
-    ' #++++++# ',
-    ' ######## ',
-    '    ##    ',
-    '##########',
-    '#        #',
-    '#        #',
-    '#        #',
-  ]},
-  bookshelf:{ name:'Bookshelf', glow:false, art:[
-    '########',
-    '#+#+#+ #',
-    '#+#+# +#',
-    '########',
-    '# +#+#+#',
-    '#+#+# +#',
-    '########',
-    '#+ #+#+#',
-    '#+#+#+ #',
-    '########',
-  ]},
-  plant:{ name:'Monstera', glow:false, art:[
-    '   #  #   ',
-    '  ## ##   ',
-    ' #### ##  ',
-    '# #####  #',
-    ' ## ##### ',
-    '  #### ## ',
-    '   ####   ',
-    '    ##    ',
-    '   ####   ',
-    '  ##  ##  ',
-    '  ######  ',
-  ]},
+  desk:{ name:'Workstation', art:[
+    ' ######## ',' #++++++# ',' #++++++# ',' #++++++# ',' ######## ',
+    '    ##    ','##########','#        #','#        #','#        #']},
+  bookshelf:{ name:'Bookshelf', art:[
+    '########','#+#+#+ #','#+#+# +#','########','# +#+#+#',
+    '#+#+# +#','########','#+ #+#+#','#+#+#+ #','########']},
+  plant:{ name:'Monstera', art:[
+    '   #  #   ','  ## ##   ',' #### ##  ','# #####  #',' ## ##### ',
+    '  #### ## ','   ####   ','    ##    ','   ####   ','  ##  ##  ','  ######  ']},
   lamp:{ name:'Floor Lamp', glow:true, art:[
-    '  ####  ',
-    ' #++++# ',
-    ' #++++# ',
-    '  ####  ',
-    '   ##   ',
-    '   ##   ',
-    '   ##   ',
-    '   ##   ',
-    '  ####  ',
-    ' ###### ',
-  ]},
-  beanbag:{ name:'Beanbag', glow:false, art:[
-    '  ####  ',
-    ' #++++# ',
-    '#++++++#',
-    '#++++++#',
-    '#++++++#',
-    ' ###### ',
-  ]},
-  server:{ name:'Server Rack', glow:false, art:[
-    '######',
-    '#+##+#',
-    '######',
-    '#+##+#',
-    '######',
-    '#+##+#',
-    '######',
-    '#+##+#',
-    '######',
-  ]},
+    '  ####  ',' #++++# ',' #++++# ','  ####  ','   ##   ',
+    '   ##   ','   ##   ','   ##   ','  ####  ',' ###### ']},
+  beanbag:{ name:'Beanbag', art:[
+    '  ####  ',' #++++# ','#++++++#','#++++++#','#++++++#',' ###### ']},
+  server:{ name:'Server Rack', art:[
+    '######','#+##+#','######','#+##+#','######','#+##+#','######','#+##+#','######']},
 };
 const TRAY_ORDER=['desk','bookshelf','plant','lamp','beanbag','server','rug'];
 
 /* ---- pet sprite (16x16) — the only colour in the room ------- */
 const PAL={'0':null,'1':'#5a2412','2':'#e8643c','3':'#f2956b','4':'#ffffff','5':'#2a2a2a','6':'#3aa0c0'};
 const PET=[
-  '................',
-  '......2222......',
-  '.....122222.1...',
-  '....1222222221..',
-  '....1222222221..',
-  '...122222222221.',
-  '...124422442221.',  /* eyes (white) */
-  '...125522552221.',  /* pupils       */
-  '...122222222221.',
-  '...123333333321.',  /* belly        */
-  '....1233333321..',
-  '....1222222221..',
-  '.....12222221...',
-  '....1.1..1.1....',  /* little legs  */
-  '...1..1..1..1...',
-  '................',
-];
-function drawPet(cv, bob){
-  const px=4, S=16;
+  '................','......2222......','.....122222.1...','....1222222221..',
+  '....1222222221..','...122222222221.','...124422442221.','...125522552221.',
+  '...122222222221.','...123333333321.','....1233333321..','....1222222221..',
+  '.....12222221...','....1.1..1.1....','...1..1..1..1...','................'];
+function drawPetCanvas(){
+  const px=8, S=16, cv=document.createElement('canvas');
   cv.width=S*px; cv.height=S*px;
   const g=cv.getContext('2d'); g.imageSmoothingEnabled=false;
-  g.clearRect(0,0,cv.width,cv.height);
   for(let y=0;y<S;y++) for(let x=0;x<S;x++){
     const col=PAL[PET[y][x]]; if(!col) continue;
-    g.fillStyle=col; g.fillRect(x*px,(y)*px,px,px);
+    g.fillStyle=col; g.fillRect(x*px,y*px,px,px);
   }
+  return cv;
 }
 
 /* ============================================================
-   BUILD ROOM
+   THREE.JS SCENE
    ============================================================ */
-const floor=$('#floor');
-const placed={};   // key "c,r" -> {kind, el, shadowEl}
-let selected=null; // tray selection
+const canvas=$('#view'), stage=$('#stage'), overlay=$('#overlay');
+const renderer=new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 
-/* tiles */
-for(let r=0;r<GRID;r++) for(let c=0;c<GRID;c++){
-  const t=document.createElement('div');
-  t.className='tile'; t.dataset.c=c; t.dataset.r=r;
-  t.style.left=(c*TILE)+'px'; t.style.top=(r*TILE)+'px';
-  t.addEventListener('click',()=>onTileClick(c,r));
-  t.addEventListener('mouseenter',()=>{ if(selected) t.classList.add('hot'); });
-  t.addEventListener('mouseleave',()=>t.classList.remove('hot'));
-  floor.appendChild(t);
+const scene=new THREE.Scene();
+const DAY_BG=new THREE.Color('#0e1116'), NIGHT_BG=new THREE.Color('#050609');
+scene.background=DAY_BG.clone();
+scene.fog=new THREE.Fog(scene.background.getHex(), 560, 1400);
+
+const camera=new THREE.PerspectiveCamera(34, 1, 1, 5000);
+const CAM_HOME=new THREE.Vector3(360,330,440), TARGET_HOME=new THREE.Vector3(0,42,0);
+camera.position.copy(CAM_HOME);
+
+const controls=new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.copy(TARGET_HOME);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.enablePan=true; controls.enableZoom=true;
+controls.minDistance=240; controls.maxDistance=1100;
+controls.minPolarAngle=0.18; controls.maxPolarAngle=1.48;   /* never dip under the floor */
+controls.update();
+
+/* ---- texture helpers ---- */
+function dotTexture(bg, dot, cell, r){
+  const c=document.createElement('canvas'); c.width=c.height=cell;
+  const g=c.getContext('2d');
+  if(bg){ g.fillStyle=bg; g.fillRect(0,0,cell,cell); }
+  g.fillStyle=dot; g.beginPath(); g.arc(cell/2,cell/2,r,0,Math.PI*2); g.fill();
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  return t;
+}
+function spriteFromCanvas(cv){
+  const t=new THREE.CanvasTexture(cv);
+  t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false;
+  const m=new THREE.SpriteMaterial({map:t, transparent:true, depthWrite:false});
+  const s=new THREE.Sprite(m); s.center.set(0.5,0);   /* anchor bottom on the floor */
+  return s;
+}
+function radialTexture(inner, outer){
+  const sz=64, c=document.createElement('canvas'); c.width=c.height=sz;
+  const g=c.getContext('2d'); const grd=g.createRadialGradient(sz/2,sz/2,0,sz/2,sz/2,sz/2);
+  grd.addColorStop(0,inner); grd.addColorStop(1,outer);
+  g.fillStyle=grd; g.fillRect(0,0,sz,sz);
+  return new THREE.CanvasTexture(c);
 }
 
-/* wall art */
-const wallBack=$('#wallBack'), wallLeft=$('#wallLeft');
+/* ---- floor + grid ---- */
+const floorTex=dotTexture('#14171c','rgba(233,233,236,0.20)',8,1.4);
+floorTex.repeat.set(ROOM/8, ROOM/8);
+const floor=new THREE.Mesh(
+  new THREE.PlaneGeometry(ROOM,ROOM),
+  new THREE.MeshBasicMaterial({map:floorTex}));
+floor.rotation.x=-Math.PI/2;
+scene.add(floor);
+
+const grid=new THREE.GridHelper(ROOM, GRID, 0xffffff, 0xffffff);
+grid.material.transparent=true; grid.material.opacity=0.10; grid.position.y=0.4;
+scene.add(grid);
+
+/* ---- walls (all four; cull the two nearest the camera) ---- */
+const wallTex=dotTexture('#0f1217','rgba(233,233,236,0.15)',8,1.3);
+wallTex.repeat.set(ROOM/8, WALL/8);
+function makeWall(rotY, pos, outward){
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(ROOM,WALL),
+    new THREE.MeshBasicMaterial({map:wallTex.clone(), side:THREE.DoubleSide}));
+  m.material.map.wrapS=m.material.map.wrapT=THREE.RepeatWrapping;
+  m.material.map.repeat.set(ROOM/8, WALL/8);
+  m.rotation.y=rotY; m.position.set(pos.x, WALL/2, pos.z);
+  m.userData.outward=outward;
+  scene.add(m); return m;
+}
+const walls=[
+  makeWall(0,            {x:0,z:-HALF}, new THREE.Vector3(0,0,-1)),  /* back  */
+  makeWall(Math.PI,      {x:0,z: HALF}, new THREE.Vector3(0,0, 1)),  /* front */
+  makeWall(Math.PI/2,    {x:-HALF,z:0}, new THREE.Vector3(-1,0,0)),  /* left  */
+  makeWall(-Math.PI/2,   {x: HALF,z:0}, new THREE.Vector3( 1,0,0)),  /* right */
+];
+const wallBack=walls[0], wallLeft=walls[2];
+
+/* ---- wall art (window on back wall, poster on left wall) ---- */
+let showWindow=true, showPoster=true, winMesh=null, posterMesh=null;
 function buildWallArt(){
-  wallBack.querySelectorAll('.window,.poster').forEach(e=>e.remove());
-  wallLeft.querySelectorAll('.window,.poster').forEach(e=>e.remove());
+  if(winMesh){ wallBack.remove(winMesh); winMesh=null; }
+  if(posterMesh){ wallLeft.remove(posterMesh); posterMesh=null; }
   if(showWindow){
-    const win=document.createElement('div'); win.className='window';
-    win.style.cssText='left:46px;top:30px;width:120px;height:80px;';
-    win.innerHTML='<div class="pane"></div><div class="moon"></div>';
-    wallBack.appendChild(win);
+    const g=new THREE.PlaneGeometry(120,80);
+    const m=new THREE.MeshBasicMaterial({color:0x20262e});
+    winMesh=new THREE.Mesh(g,m);
+    winMesh.position.set(-46, 6, 0.6);                 /* coplanar, slight offset */
+    const pane=new THREE.Mesh(new THREE.PlaneGeometry(104,64),
+      new THREE.MeshBasicMaterial({color:0x12161c}));
+    pane.position.z=0.4; winMesh.add(pane);
+    const frame=new THREE.LineSegments(
+      new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.16}));
+    winMesh.add(frame);
+    wallBack.add(winMesh);
   }
   if(showPoster){
-    const p=document.createElement('div'); p.className='poster';
-    p.style.cssText='position:absolute;left:70px;top:34px;width:64px;height:84px;background:#0d1a2c;box-shadow:inset 0 0 0 3px #1b2c44;';
-    p.innerHTML='<div style="position:absolute;left:8px;top:10px;right:8px;height:44px;background:#1f4f7a;"></div>'+
-                '<div style="position:absolute;left:18px;bottom:14px;width:28px;height:8px;background:#ffd83d;"></div>';
-    wallLeft.appendChild(p);
+    const g=new THREE.PlaneGeometry(64,84);
+    posterMesh=new THREE.Mesh(g, new THREE.MeshBasicMaterial({color:0x161a20}));
+    posterMesh.position.set(38, 8, 0.6);
+    const stripe=new THREE.Mesh(new THREE.PlaneGeometry(40,8),
+      new THREE.MeshBasicMaterial({color:0xffb347}));   /* the one accent */
+    stripe.position.set(0,-26,0.4); posterMesh.add(stripe);
+    wallLeft.add(posterMesh);
   }
 }
+buildWallArt();
 
-/* place / remove objects */
+/* ---- shared shadow + highlight ---- */
+const shadowTex=radialTexture('rgba(0,0,0,0.5)','rgba(0,0,0,0)');
+function makeShadow(){
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(46,46),
+    new THREE.MeshBasicMaterial({map:shadowTex, transparent:true, depthWrite:false}));
+  m.rotation.x=-Math.PI/2; m.position.y=0.5; return m;
+}
+const hi=new THREE.Mesh(new THREE.PlaneGeometry(TILE,TILE),
+  new THREE.MeshBasicMaterial({color:0xffb347, transparent:true, opacity:0.16, depthWrite:false}));
+hi.rotation.x=-Math.PI/2; hi.position.y=0.6; hi.visible=false; scene.add(hi);
+
+/* ============================================================
+   PLACE / MOVE / REMOVE OBJECTS
+   ============================================================ */
+const placed={};                 // "c,r" -> {kind, sprite, shadow, glow, rug, c, r}
+const pickables=[];              // sprites the raycaster can hit (furniture + pet)
+let selected=null;              // tray selection (placement mode)
+let moving=null;                // object being relocated (move mode)
+
 function placeObject(kind,c,r){
   const key=c+','+r;
   if(placed[key]) removeObject(c,r);
-  const cx=(c+0.5)*TILE, cy=(r+0.5)*TILE;
+  const w=tileToWorld(c,r);
 
   if(kind==='rug'){
-    const rug=document.createElement('div'); rug.className='rug';
-    rug.style.cssText=`left:${cx}px;top:${cy}px;width:${TILE*0.82}px;height:${TILE*0.82}px;`;
-    rug.addEventListener('click',e=>{e.stopPropagation();removeObject(c,r);});
-    floor.appendChild(rug);
-    placed[key]={kind,el:rug}; updateNeeds(); return;
+    const t=dotTexture('#1c2128','rgba(233,233,236,0.22)',8,1.4);
+    t.repeat.set(6,6);
+    const rug=new THREE.Mesh(new THREE.PlaneGeometry(TILE*0.84,TILE*0.84),
+      new THREE.MeshBasicMaterial({map:t}));
+    rug.rotation.x=-Math.PI/2; rug.position.set(w.x,0.3,w.z);
+    rug.userData.tile={c,r}; scene.add(rug); pickables.push(rug);
+    placed[key]={kind,sprite:rug,rug:true,c,r}; updateNeeds(); return placed[key];
   }
 
   const def=DEFS[kind];
-  // ground shadow (flat on floor)
-  const sh=document.createElement('div'); sh.className='shadow';
-  sh.style.left=cx+'px'; sh.style.top=cy+'px';
-  floor.appendChild(sh);
+  const {cv,w:cw,h:ch}=dotArtCanvas(def.art);
+  const sprite=spriteFromCanvas(cv);
+  const base=50, sw=base, sh=base*(ch/cw);
+  sprite.scale.set(sw,sh,1);
+  sprite.position.set(w.x,0,w.z);
+  sprite.userData.tile={c,r}; sprite.userData.kind=kind;
+  scene.add(sprite); pickables.push(sprite);
 
-  // billboard standee
-  const obj=document.createElement('div'); obj.className='obj';
-  obj.style.left=cx+'px'; obj.style.top=cy+'px';
-  const card=document.createElement('div'); card.className='card';
-  if(def.glow){ const gl=document.createElement('div'); gl.className='glow'; card.appendChild(gl); }
-  card.appendChild(dotArt(def.art));
-  const lbl=document.createElement('div'); lbl.className='lbl'; lbl.textContent=def.name; card.appendChild(lbl);
-  card.addEventListener('click',e=>{e.stopPropagation();removeObject(c,r);});
-  obj.appendChild(card);
-  floor.appendChild(obj);
+  const shadow=makeShadow(); shadow.position.set(w.x,0.5,w.z); scene.add(shadow);
 
-  placed[key]={kind,el:obj,shadowEl:sh};
-  updateNeeds();
+  let glow=null;
+  if(def.glow){
+    glow=new THREE.Sprite(new THREE.SpriteMaterial({
+      map:radialTexture('rgba(255,179,71,0.5)','rgba(255,179,71,0)'),
+      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending}));
+    glow.scale.set(120,120,1); glow.position.set(w.x,sh*0.7,w.z); scene.add(glow);
+  }
+  placed[key]={kind,sprite,shadow,glow,c,r}; updateNeeds(); return placed[key];
 }
+function disposeSprite(s){ if(!s) return; if(s.material.map) s.material.map.dispose();
+  s.material.dispose(); if(s.geometry) s.geometry.dispose(); scene.remove(s);
+  const i=pickables.indexOf(s); if(i>=0) pickables.splice(i,1); }
 function removeObject(c,r){
   const key=c+','+r, p=placed[key]; if(!p) return;
-  p.el.remove(); if(p.shadowEl) p.shadowEl.remove();
-  delete placed[key]; updateNeeds();
+  disposeSprite(p.sprite); if(p.shadow) disposeSprite(p.shadow); if(p.glow) disposeSprite(p.glow);
+  delete placed[key]; if(moving===p) moving=null; updateNeeds();
 }
-function onTileClick(c,r){
-  if(!selected) return;
-  const key=c+','+r;
-  if(placed[key]) removeObject(c,r); else placeObject(selected,c,r);
+function moveObject(p,c,r){
+  const key=c+','+r; if(placed[key]) return false;           // occupied
+  delete placed[p.c+','+p.r];
+  p.c=c; p.r=r; placed[key]=p; const w=tileToWorld(c,r);
+  p.sprite.position.x=w.x; p.sprite.position.z=w.z;
+  if(p.sprite.userData.tile) p.sprite.userData.tile={c,r};
+  if(p.shadow){ p.shadow.position.x=w.x; p.shadow.position.z=w.z; }
+  if(p.glow){ p.glow.position.x=w.x; p.glow.position.z=w.z; }
+  return true;
+}
+function setMoving(p){
+  if(moving) moving.sprite.scale.multiplyScalar(1/1.12);
+  moving=p;
+  if(moving && !moving.rug) moving.sprite.scale.multiplyScalar(1.12);
+}
+
+/* ============================================================
+   PET
+   ============================================================ */
+const pet=spriteFromCanvas(drawPetCanvas());
+const PET_W=52; pet.scale.set(PET_W,PET_W,1);
+pet.userData.isPet=true;
+let petPos={x:0,z:0}, petTarget={x:0,z:0};
+function petTo(c,r){ const w=tileToWorld(c,r); petPos={x:w.x,z:w.z}; petTarget={...petPos};
+  pet.position.set(w.x,0,w.z); }
+petTo(2,3);
+scene.add(pet); pickables.push(pet);
+
+const LINES=['hello there!',"let's build!",'cozy in here','feed me?','♫ vibing','nice room!','...thinking','ship it!'];
+const speechEl=document.createElement('div'); speechEl.className='speech'; overlay.appendChild(speechEl);
+const labelEl=document.createElement('div'); labelEl.className='lbl'; overlay.appendChild(labelEl);
+let speechT=0;
+function say(){ speechEl.textContent=LINES[Math.floor(Math.random()*LINES.length)];
+  speechEl.classList.add('show'); speechT=2.6; }
+
+/* project a world point to overlay pixel coords; returns null if behind camera */
+const _v=new THREE.Vector3();
+function project(x,y,z){
+  _v.set(x,y,z).project(camera);
+  if(_v.z>1) return null;
+  const rect=canvas.getBoundingClientRect();
+  return { x:(_v.x*0.5+0.5)*rect.width, y:(-_v.y*0.5+0.5)*rect.height };
+}
+
+/* ============================================================
+   NEEDS (cosmetic)
+   ============================================================ */
+const NEEDS=[{k:'hunger',l:'Hunger',base:62},{k:'energy',l:'Energy',base:74},
+  {k:'happiness',l:'Happiness',base:58},{k:'hygiene',l:'Hygiene',base:80}];
+const needsBox=$('#needs');
+NEEDS.forEach(n=>{ const d=document.createElement('div'); d.className='need';
+  d.innerHTML=`<div class="row"><span>${n.l}</span><span id="nv_${n.k}">${n.base}</span></div>
+    <div class="bar"><div class="fill" id="nf_${n.k}"></div></div>`; needsBox.appendChild(d); });
+function updateNeeds(){
+  const count=Object.keys(placed).length;
+  const happy=Math.min(100, NEEDS[2].base + count*5);
+  const vals={hunger:NEEDS[0].base,energy:NEEDS[1].base,happiness:happy,hygiene:NEEDS[3].base};
+  for(const k in vals){ $('#nf_'+k).style.width=vals[k]+'%'; $('#nv_'+k).textContent=vals[k];
+    $('#nf_'+k).style.background = vals[k]<25?'#ff5e62':vals[k]<55?'#ffb347':'var(--dot-on)'; }
 }
 
 /* ---- tray UI ---- */
@@ -505,162 +532,166 @@ TRAY_ORDER.forEach(kind=>{
   t.textContent = kind==='rug'?'Rug':DEFS[kind].name.split(' ')[0];
   b.appendChild(t);
   b.addEventListener('click',()=>{
-    selected = selected===kind?null:kind;
+    selected = selected===kind?null:kind; setMoving(null);
     [...tray.children].forEach(x=>x.classList.toggle('active',x.dataset.kind===selected));
   });
   tray.appendChild(b);
 });
 
-/* ---- needs (cosmetic, driven a little by room contents) ---- */
-const NEEDS=[
-  {k:'hunger',l:'Hunger',base:62},
-  {k:'energy',l:'Energy',base:74},
-  {k:'happiness',l:'Happiness',base:58},
-  {k:'hygiene',l:'Hygiene',base:80},
-];
-const needsBox=$('#needs');
-NEEDS.forEach(n=>{
-  const d=document.createElement('div'); d.className='need';
-  d.innerHTML=`<div class="row"><span>${n.l}</span><span id="nv_${n.k}">${n.base}</span></div>
-    <div class="bar"><div class="fill" id="nf_${n.k}"></div></div>`;
-  needsBox.appendChild(d);
+/* ============================================================
+   POINTER: click vs drag, raycast place / move / poke
+   ============================================================ */
+const raycaster=new THREE.Raycaster(); const ndc=new THREE.Vector2();
+let downX=0, downY=0, downT=0;
+function setNDC(e){ const rect=canvas.getBoundingClientRect();
+  ndc.x=((e.clientX-rect.left)/rect.width)*2-1;
+  ndc.y=-((e.clientY-rect.top)/rect.height)*2+1; }
+
+canvas.addEventListener('pointerdown',e=>{ downX=e.clientX; downY=e.clientY; downT=performance.now();
+  canvas.classList.add('grabbing'); });
+canvas.addEventListener('pointerup',e=>{
+  canvas.classList.remove('grabbing');
+  const moved=Math.hypot(e.clientX-downX,e.clientY-downY);
+  if(moved<6 && performance.now()-downT<400) handleClick(e);
 });
-function updateNeeds(){
-  // a furnished room nudges happiness up — just to feel alive
-  const count=Object.keys(placed).length;
-  const happy=Math.min(100, NEEDS[2].base + count*5);
-  const vals={hunger:NEEDS[0].base,energy:NEEDS[1].base,happiness:happy,hygiene:NEEDS[3].base};
-  for(const k in vals){
-    $('#nf_'+k).style.width=vals[k]+'%';
-    $('#nv_'+k).textContent=vals[k];
-    $('#nf_'+k).style.background = vals[k]<25?'#ff5e62':vals[k]<55?'#ffb347':'var(--dot-on)';
+canvas.addEventListener('pointermove',e=>{
+  setNDC(e); raycaster.setFromCamera(ndc,camera);
+  // highlight a target tile while placing or moving
+  if(selected || moving){
+    const hit=raycaster.intersectObject(floor)[0];
+    if(hit){ const {c,r}=worldToTile(hit.point.x,hit.point.z); const w=tileToWorld(c,r);
+      hi.position.set(w.x,0.6,w.z); hi.visible=true; }
+    else hi.visible=false;
+  } else {
+    hi.visible=false;
+    const hit=raycaster.intersectObjects(pickables,false)[0];
+    canvas.style.cursor = hit ? 'pointer' : '';
   }
+});
+
+function handleClick(e){
+  setNDC(e); raycaster.setFromCamera(ndc,camera);
+
+  // objects/pet first
+  const hit=raycaster.intersectObjects(pickables,false)[0];
+  if(hit){
+    const o=hit.object;
+    if(o.userData.isPet){ say(); return; }
+    const t=o.userData.tile;
+    if(selected){ removeObject(t.c,t.r); return; }          // placement mode: click removes
+    const p=placed[t.c+','+t.r];
+    setMoving(moving===p?null:p);                            // toggle grab for move
+    return;
+  }
+
+  // floor next
+  const f=raycaster.intersectObject(floor)[0];
+  if(!f) return;
+  const {c,r}=worldToTile(f.point.x,f.point.z);
+  if(moving){ moveObject(moving,c,r); setMoving(null); hi.visible=false; return; }
+  if(selected){ if(placed[c+','+r]) removeObject(c,r); else placeObject(selected,c,r); }
 }
 
 /* ============================================================
-   PET — wanders the floor, billboarded, speaks now and then
+   CONTROLS (time of day, wall art, view, motion, reset)
    ============================================================ */
-const petEl=document.createElement('div'); petEl.className='pet';
-const petCv=document.createElement('canvas');
-const speech=document.createElement('div'); speech.className='speech';
-petEl.appendChild(petCv); petEl.appendChild(speech);
-floor.appendChild(petEl);
-let petTile={c:2,r:2};
-function movePet(c,r){
-  petTile={c,r};
-  petEl.style.left=((c+0.5)*TILE)+'px';
-  petEl.style.top=((r+0.5)*TILE)+'px';
-}
-movePet(2,2);
-drawPet(petCv,0);
-const LINES=['hello there!',"let's build!",'cozy in here','feed me?','♫ vibing','nice room!','...thinking','ship it!'];
-function say(){
-  if(!motion) return;
-  speech.textContent=LINES[Math.floor(Math.random()*LINES.length)];
-  speech.classList.add('show');
-  setTimeout(()=>speech.classList.remove('show'),2600);
-}
-
-/* wander loop */
-let motion=true;
-setInterval(()=>{
-  if(!motion) return;
-  for(let i=0;i<8;i++){
-    const c=Math.floor(Math.random()*GRID), r=Math.floor(Math.random()*GRID);
-    if(!placed[c+','+r]){ movePet(c,r); break; }
-  }
-},1900);
-setInterval(()=>{ if(Math.random()<0.5) say(); },4200);
-/* idle bob */
-let bobT=0;
-function bobLoop(){
-  if(motion){ bobT+=0.06; petCv.style.transform=`translate(-50%,-100%) translateY(${Math.sin(bobT)*2}px)`; }
-  requestAnimationFrame(bobLoop);
-}
-bobLoop();
-
-/* ============================================================
-   ORBIT (drag) + PARALLAX + CONTROLS
-   ============================================================ */
-const root=document.documentElement.style;
-let ax=58, az=-45;
-function applyView(){ root.setProperty('--ax',ax+'deg'); root.setProperty('--az',az+'deg'); }
-applyView();
-
-const scene=$('#scene');
-let dragging=false, lastX=0, lastY=0;
-scene.addEventListener('pointerdown',e=>{
-  dragging=true; lastX=e.clientX; lastY=e.clientY;
-  scene.classList.add('dragging'); document.body.classList.add('no-trans');
-  scene.setPointerCapture(e.pointerId);
-});
-scene.addEventListener('pointermove',e=>{
-  if(!dragging) return;
-  az = clamp(az + (e.clientX-lastX)*0.3, -72, -18);
-  ax = clamp(ax - (e.clientY-lastY)*0.2, 46, 68);
-  lastX=e.clientX; lastY=e.clientY;
-  $('#tilt').value=Math.round(ax); $('#tiltVal').textContent=Math.round(ax);
-  applyView();
-});
-function endDrag(){ dragging=false; scene.classList.remove('dragging'); document.body.classList.remove('no-trans'); }
-scene.addEventListener('pointerup',endDrag);
-scene.addEventListener('pointercancel',endDrag);
-
-/* gentle parallax when idle */
-scene.addEventListener('mousemove',e=>{
-  if(dragging) return;
-  const rect=scene.getBoundingClientRect();
-  const dx=(e.clientX-rect.left)/rect.width-0.5;
-  root.setProperty('--az',(az + dx*6)+'deg');
-});
-scene.addEventListener('mouseleave',()=>root.setProperty('--az',az+'deg'));
-
-function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
-
-/* time of day */
 const tod=$('#tod'), todVal=$('#todVal');
-function setTod(v){
-  const t=v/100;                 // 0 = bright day, 1 = night
-  root.setProperty('--tint',t);
+function setTod(v){ const t=v/100; document.documentElement.style.setProperty('--tint',t);
   todVal.textContent = t<0.2?'DAY':t<0.45?'DUSK':t<0.7?'EVENING':'NIGHT';
-}
-tod.addEventListener('input',e=>setTod(+e.target.value));
-setTod(+tod.value);
+  scene.background.copy(DAY_BG).lerp(NIGHT_BG,t);
+  scene.fog.color.copy(scene.background); }
+tod.addEventListener('input',e=>setTod(+e.target.value)); setTod(+tod.value);
 
-/* tilt slider */
-$('#tilt').addEventListener('input',e=>{ ax=+e.target.value; $('#tiltVal').textContent=ax; applyView(); });
-
-/* wall art toggles */
-let showWindow=true, showPoster=true;
 $('#tWindow').addEventListener('click',function(){ showWindow=!showWindow; this.classList.toggle('on',showWindow); buildWallArt(); });
 $('#tPoster').addEventListener('click',function(){ showPoster=!showPoster; this.classList.toggle('on',showPoster); buildWallArt(); });
-buildWallArt();
 
-/* motion + reset */
+$('#tView').addEventListener('click',()=>{ camera.position.copy(CAM_HOME);
+  controls.target.copy(TARGET_HOME); controls.update(); });
+
+let motion=true;
 $('#tMotion').addEventListener('click',function(){ motion=!motion; this.classList.toggle('on',motion); });
 $('#tReset').addEventListener('click',()=>{
   Object.keys(placed).forEach(k=>{const[c,r]=k.split(',').map(Number);removeObject(c,r);});
   seedRoom();
 });
 
-/* ---- starter furniture so the room reads on load ---- */
+/* ---- starter furniture ---- */
 function seedRoom(){
-  placeObject('rug',2,2);
-  placeObject('desk',1,0);
-  placeObject('bookshelf',0,1);
-  placeObject('plant',4,0);
-  placeObject('lamp',0,4);
-  placeObject('beanbag',4,4);
-  placeObject('server',4,2);
-  movePet(2,3);
-  updateNeeds();
+  placeObject('rug',2,2); placeObject('desk',1,0); placeObject('bookshelf',0,1);
+  placeObject('plant',4,0); placeObject('lamp',0,4); placeObject('beanbag',4,4);
+  placeObject('server',4,2); petTo(2,3); updateNeeds();
 }
 seedRoom();
 
-/* reduced motion respect */
-if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){
-  motion=false; $('#tMotion').classList.remove('on');
+/* ============================================================
+   RESIZE + RENDER LOOP
+   ============================================================ */
+const BASE_FOV=34, REF_ASPECT=1.4;
+function resize(){ const w=stage.clientWidth, h=stage.clientHeight;
+  renderer.setSize(w,h,false); const aspect=w/h; camera.aspect=aspect;
+  // On narrow/portrait screens the horizontal field shrinks; widen the vertical fov to
+  // keep the whole room framed instead of letting it overflow the canvas sides.
+  if(aspect<REF_ASPECT){
+    const hFov=2*Math.atan(Math.tan(BASE_FOV*Math.PI/360)*REF_ASPECT);
+    camera.fov=clamp(2*Math.atan(Math.tan(hFov/2)/aspect)*180/Math.PI, BASE_FOV, 60);
+  } else camera.fov=BASE_FOV;
+  camera.updateProjectionMatrix(); }
+window.addEventListener('resize',resize); resize();
+
+let wanderT=0; const clock=new THREE.Clock();
+function tick(){
+  const dt=clock.getDelta();
+  const anim = motion && !reduced();
+
+  controls.update();
+
+  // cull the two walls nearest the camera (cutaway iso)
+  for(const w of walls){ const toCam=camera.position.clone().sub(w.position);
+    w.visible = w.userData.outward.dot(toCam) < 0; }
+
+  if(anim){
+    // wander
+    wanderT-=dt;
+    if(wanderT<=0){ wanderT=1.9;
+      for(let i=0;i<8;i++){ const c=Math.floor(Math.random()*GRID), r=Math.floor(Math.random()*GRID);
+        if(!placed[c+','+r]){ const w=tileToWorld(c,r); petTarget={x:w.x,z:w.z}; break; } }
+      if(Math.random()<0.5) say();
+    }
+    petPos.x+=(petTarget.x-petPos.x)*Math.min(1,dt*2.2);
+    petPos.z+=(petTarget.z-petPos.z)*Math.min(1,dt*2.2);
+    const bob=Math.max(0,Math.sin(performance.now()*0.004))*3;
+    pet.position.set(petPos.x, bob, petPos.z);
+  } else {
+    pet.position.set(petPos.x,0,petPos.z);
+  }
+
+  // overlay: speech bubble follows the pet
+  if(speechT>0){ speechT-=dt; if(speechT<=0) speechEl.classList.remove('show'); }
+  if(speechEl.classList.contains('show')){
+    const p=project(pet.position.x, PET_W+10, pet.position.z);
+    if(p){ speechEl.style.left=p.x+'px'; speechEl.style.top=(p.y-4)+'px'; speechEl.style.display='block'; }
+    else speechEl.style.display='none';
+  }
+  // overlay: label while moving an object
+  if(moving && !moving.rug){
+    const p=project(moving.sprite.position.x, moving.sprite.scale.y+8, moving.sprite.position.z);
+    labelEl.textContent='moving · click a tile';
+    if(p){ labelEl.classList.add('show'); labelEl.style.left=p.x+'px'; labelEl.style.top=(p.y-2)+'px'; }
+    else labelEl.classList.remove('show');
+  } else labelEl.classList.remove('show');
+
+  renderer.render(scene,camera);
+  requestAnimationFrame(tick);
 }
+tick();
+
+/* reduced-motion respect */
+if(reduced()){ motion=false; $('#tMotion').classList.remove('on'); }
+
+/* prototype debug handle (orbit/state inspection) */
+window.__room={scene,camera,controls,walls,placed,pet,
+  orbit:(az,polar,dist)=>{ const s=new THREE.Spherical(dist,polar,az);
+    camera.position.setFromSpherical(s).add(controls.target); controls.update(); }};
 </script>
 </body>
 </html>

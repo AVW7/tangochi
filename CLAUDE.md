@@ -53,6 +53,33 @@ sim → iso → minigame → actions → progress → shop → ui → main
 
 `index.legacy.html` is the original single-file v1, kept for reference. Safe to delete.
 
+## v2 prototypes (`v2/`)
+
+`v2/` is an **experimental, throwaway prototype area** exploring a richer 3D room and a
+shop/studio loop. It is **separate from the shipped game** and the hard constraints above
+are **intentionally relaxed here only** — specifically, the "no external libraries" rule:
+v2 vendors **Three.js r128** (`v2/vendor/three.min.js` + `OrbitControls.js`, the last
+release with global `examples/js` controls), loaded via classic `<script>` tags (no ESM /
+import maps) so a double-click `file://` open still works. If anything in `v2/` is ever
+promoted into the main game, the no-library / ESM-over-`file://` constraints come back.
+
+The cozy-lofi aesthetic is shared across all v2 pages: near-black scene, monochrome
+halftone-dot surfaces, **the pet is the only real colour**, one orange accent (`#ffb347`),
+CRT scanlines, `Press Start 2P` + `JetBrains Mono`. No mood/hue tints; day/night darkens
+in grayscale only.
+
+| File | Responsibility |
+|------|----------------|
+| `v2/room-prototype.html`        | Three.js 3D room: free orbit/zoom/pan (OrbitControls), four walls with the two nearest the camera **culled per-frame** (cutaway iso), billboarded dot-matrix sprites for pet/furniture, click-to-place / grab-to-move, click-pet-to-poke. Built-in furniture catalog. Aspect-aware fov so the room stays framed on narrow screens. `window.__room` debug handle. |
+| `v2/shop-prototype.html`        | "Room of Requirement · Object Studio": a catalog where objects are **developed** through stages (idea→concept→prototype→ready) then **acquired** with coins, plus a clickable dot-matrix **sketch pad** to conjure new object ideas. Persists to `localStorage['tangochi_studio_v2']`. |
+| `v2/room-of-requirement.html`   | Three.js room that **materialises objects acquired in the studio** (auto-place + shimmer), with grab-to-move arranging. Persists layout to `localStorage['tangochi_ror_v2']`; live-syncs via the `storage` event when the studio tab changes. `window.__ror` debug handle. |
+| `v2/room-prototype.cssed.html`  | Backup of the original CSS-3D room (pre-Three.js rebuild), kept for reference. |
+| `v2/vendor/`                    | Vendored Three.js r128 globals. |
+
+The studio (`shop-prototype.html`) and the Room of Requirement (`room-of-requirement.html`)
+are linked **only through shared `localStorage`** (same origin) — there is no shared JS
+module. Each v2 page is a self-contained single HTML file.
+
 ## Data model (`TG.STATE`, save key `tangochi`, version 3)
 
 ```

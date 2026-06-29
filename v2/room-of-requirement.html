@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TANGOCHI v2 — Room of Requirement</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-0:#07080a; --bg-1:#0d0f12; --bg-2:#14171c; --bg-3:#1c2128;
+  --line:rgba(255,255,255,0.07); --line-strong:rgba(255,255,255,0.14);
+  --dot-on:#e9e9ec; --dot-dim:rgba(233,233,236,0.28);
+  --text-0:rgba(255,255,255,0.95); --text-1:rgba(255,255,255,0.60); --text-2:rgba(255,255,255,0.36);
+  --accent:#ffb347; --pet:#e8643c; --tint:0;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;
+  background:radial-gradient(ellipse 70% 50% at 50% -10%, rgba(255,179,71,0.04), transparent 60%), var(--bg-0);
+  color:var(--text-0); font-family:'JetBrains Mono',monospace; overflow:hidden;}
+.bg-grid{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:64px 64px;}
+
+.app{position:fixed;inset:0;display:grid;grid-template-columns:1fr 300px;z-index:1;}
+@media(max-width:860px){.app{grid-template-columns:1fr;grid-template-rows:1fr auto;}}
+
+.stage-wrap{position:relative;overflow:hidden;}
+#view{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none;z-index:1;}
+#view.grabbing{cursor:grabbing;}
+.title{position:absolute;top:16px;left:22px;z-index:65;}
+.title .name{font-family:'Press Start 2P',monospace;font-size:clamp(11px,2.4vw,15px);letter-spacing:.02em;}
+.title .sub{font-size:clamp(8px,1.5vw,10px);letter-spacing:.22em;color:var(--text-2);margin-top:7px;text-transform:uppercase;}
+.fm-tag{position:absolute;top:18px;right:22px;z-index:65;font-size:clamp(9px,1.7vw,11px);letter-spacing:.14em;color:var(--text-1);
+  display:flex;gap:8px;align-items:center;max-width:60vw;}
+.fm-tag b{font-weight:500;color:var(--text-0);}
+.fm-tag .live{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);animation:pulse 1.6s infinite ease-in-out;}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+.tint{position:absolute;inset:0;pointer-events:none;z-index:60;background:rgba(5,6,8,var(--tint));
+  box-shadow:inset 0 0 140px 30px rgba(0,0,0,calc(0.25 + var(--tint)*0.4));}
+.scanlines{position:absolute;inset:0;pointer-events:none;z-index:61;opacity:.35;
+  background:repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.18) 2px 3px);}
+#overlay{position:absolute;inset:0;pointer-events:none;z-index:62;}
+.speech{position:absolute;transform:translate(-50%,-100%);background:var(--bg-2);border:1px solid var(--line-strong);
+  border-radius:6px;padding:6px 9px;font-size:9px;letter-spacing:.04em;white-space:nowrap;color:var(--text-0);
+  box-shadow:0 8px 18px -8px #000;opacity:0;transition:opacity .2s;}
+.speech.show{opacity:1;}
+.lbl{position:absolute;transform:translate(-50%,-100%);font-size:8px;letter-spacing:.12em;color:var(--text-2);
+  white-space:nowrap;text-transform:uppercase;opacity:0;transition:opacity .15s;}
+.lbl.show{opacity:1;}
+
+/* empty-room prompt */
+.empty{position:absolute;inset:0;z-index:63;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;text-align:center;padding:20px;pointer-events:none;opacity:0;transition:opacity .3s;}
+.empty.show{opacity:1;pointer-events:auto;}
+.empty .glyph{font-size:30px;color:var(--accent);opacity:.7;}
+.empty .l1{font-family:'Press Start 2P',monospace;font-size:12px;letter-spacing:.04em;color:var(--text-0);line-height:1.8;}
+.empty .l2{font-size:11px;color:var(--text-1);font-style:italic;max-width:340px;line-height:1.7;}
+.empty a{margin-top:6px;background:var(--accent);color:#1a1206;text-decoration:none;border-radius:8px;padding:11px 18px;
+  font-family:'Press Start 2P',monospace;font-size:9px;letter-spacing:.04em;}
+.empty a:hover{filter:brightness(1.08);}
+
+/* ── panel ── */
+.panel{background:var(--bg-1);border-left:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto;}
+@media(max-width:860px){.panel{border-left:none;border-top:1px solid var(--line);max-height:46vh;}}
+.panel section{padding:16px 18px;border-bottom:1px solid var(--line);}
+.panel h2{font-size:10px;letter-spacing:.2em;color:var(--text-2);text-transform:uppercase;margin-bottom:12px;display:flex;justify-content:space-between;}
+.panel h2 .ct{color:var(--accent);}
+
+.chips{display:flex;flex-direction:column;gap:7px;}
+.chip{display:flex;align-items:center;gap:10px;background:var(--bg-2);border:1px solid var(--line);border-radius:8px;
+  padding:8px 10px;cursor:pointer;transition:all .15s;}
+.chip:hover{border-color:var(--line-strong);transform:translateX(2px);}
+.chip.sel{border-color:var(--accent);background:rgba(255,179,71,.08);}
+.chip .ico{width:26px;height:26px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+.chip .ico svg{max-width:26px;max-height:26px;} .chip .ico .dot{fill:var(--dot-on);} .chip .ico .dot.dim{fill:var(--dot-dim);}
+.chip .info{min-width:0;}
+.chip .nm{font-size:10px;color:var(--text-0);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.chip .cat{font-size:8px;color:var(--text-2);text-transform:uppercase;letter-spacing:.08em;}
+.empty-note{font-size:10px;color:var(--text-2);line-height:1.7;font-style:italic;}
+
+.ctrl{margin-bottom:14px;}
+.ctrl label{display:block;font-size:9px;letter-spacing:.14em;color:var(--text-2);text-transform:uppercase;margin-bottom:6px;}
+.ctrl .v{font-family:'Press Start 2P';font-size:9px;color:var(--text-0);float:right;}
+input[type=range]{width:100%;-webkit-appearance:none;height:3px;background:var(--bg-3);outline:none;cursor:pointer;border-radius:2px;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--dot-on);cursor:pointer;}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--dot-on);border:none;cursor:pointer;}
+.toggle{display:flex;gap:8px;flex-wrap:wrap;}
+.toggle button{flex:1;background:var(--bg-2);border:1px solid var(--line);border-radius:6px;padding:9px 6px;cursor:pointer;
+  color:var(--text-1);font-size:9px;letter-spacing:.1em;text-transform:uppercase;transition:all .15s;}
+.toggle button:hover{border-color:var(--line-strong);color:var(--text-0);}
+.toggle button.on{border-color:var(--accent);color:var(--text-0);background:rgba(255,179,71,.09);}
+.hint{font-size:9px;color:var(--text-2);line-height:1.6;margin-top:4px;}
+.studio-link{display:block;text-align:center;background:var(--bg-2);border:1px solid var(--line);border-radius:8px;
+  padding:11px;color:var(--accent);text-decoration:none;font-size:10px;letter-spacing:.08em;text-transform:uppercase;transition:all .15s;}
+.studio-link:hover{border-color:var(--accent);background:rgba(255,179,71,.08);}
+.foot{padding:14px 18px;font-size:9px;color:var(--text-2);letter-spacing:.06em;}
+
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--bg-2);
+  border:1px solid var(--line-strong);border-radius:8px;padding:11px 16px;font-size:10px;letter-spacing:.04em;color:var(--text-0);
+  box-shadow:0 14px 30px -12px #000;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:90;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+@media(pointer:coarse){ .toggle button{min-height:44px;} .chip{padding:11px 10px;} }
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+
+<div class="app">
+  <div class="stage-wrap" id="stage">
+    <div class="title">
+      <div class="name">TANGOCHI</div>
+      <div class="sub">// v2 · room of requirement</div>
+    </div>
+    <div class="fm-tag"><span class="live"></span>♫ <b>CLAUDE&nbsp;FM</b><span class="fm-sub">&nbsp;· the room provides</span></div>
+
+    <canvas id="view"></canvas>
+    <div id="overlay"></div>
+    <div class="empty" id="empty">
+      <div class="glyph">✦</div>
+      <div class="l1">the room awaits<br>your requirements</div>
+      <div class="l2">it can only provide what you have conjured. develop &amp; acquire
+        objects in the Object Studio — they will materialise here.</div>
+      <a href="shop-prototype.html">Open Object Studio →</a>
+    </div>
+    <div class="tint"></div>
+    <div class="scanlines"></div>
+  </div>
+
+  <aside class="panel">
+    <section>
+      <h2>// Materialised <span class="ct" id="matCt">0</span></h2>
+      <div class="chips" id="chips"></div>
+    </section>
+    <section>
+      <h2>// The Room</h2>
+      <div class="ctrl">
+        <label>Time of Day <span class="v" id="todVal">DAY</span></label>
+        <input type="range" id="tod" min="0" max="100" value="20">
+      </div>
+      <div class="ctrl">
+        <label>Arrange</label>
+        <div class="toggle">
+          <button id="tTidy">Tidy</button>
+          <button id="tReset">Re-summon</button>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label>Motion</label>
+        <div class="toggle"><button id="tMotion" class="on">Animate</button></div>
+      </div>
+      <div class="hint">Click an object (or a chip) to grab it, then click a tile to move it.
+        Click the pet to poke it. Drag to orbit · scroll to zoom · right-drag to pan.</div>
+    </section>
+    <section>
+      <a class="studio-link" href="shop-prototype.html">✦ Object Studio →</a>
+    </section>
+    <div class="foot">what the room requires, the room provides · prototype</div>
+  </aside>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script>
+/* ============================================================
+   TANGOCHI v2 — Room of Requirement
+   A Three.js room that materialises the objects you acquire in
+   the Object Studio (shop-prototype.html). Shared via localStorage.
+   ============================================================ */
+const GRID=5, TILE=72, ROOM=GRID*TILE, HALF=ROOM/2, WALL=128;
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const reduced=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const STUDIO_KEY='tangochi_studio_v2', ROR_KEY='tangochi_ror_v2';
+
+function tileToWorld(c,r){ return { x:(c+0.5)*TILE-HALF, z:(r+0.5)*TILE-HALF }; }
+function worldToTile(x,z){ return { c:clamp(Math.floor((x+HALF)/TILE),0,GRID-1),
+                                    r:clamp(Math.floor((z+HALF)/TILE),0,GRID-1) }; }
+function easeOutBack(t){ const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2); }
+
+/* dot art -> SVG (panel chips) */
+function dotArtSVG(rows, cell=4, r=1.4){
+  const NS='http://www.w3.org/2000/svg', h=rows.length, w=Math.max(1,...rows.map(s=>s.length));
+  const svg=document.createElementNS(NS,'svg'); svg.setAttribute('viewBox',`0 0 ${w*cell} ${h*cell}`);
+  svg.setAttribute('width',w*cell); svg.setAttribute('height',h*cell);
+  for(let y=0;y<h;y++){ const line=rows[y]||'';
+    for(let x=0;x<line.length;x++){ const ch=line[x]; if(ch!=='#'&&ch!=='+') continue;
+      const c=document.createElementNS(NS,'circle'); c.setAttribute('cx',x*cell+cell/2);
+      c.setAttribute('cy',y*cell+cell/2); c.setAttribute('r',r);
+      c.setAttribute('class','dot'+(ch==='+'?' dim':'')); svg.appendChild(c); } }
+  return svg;
+}
+/* dot art -> transparent canvas (3D sprites) */
+function dotArtCanvas(rows, cell=10, r=3.6){
+  const h=rows.length, w=Math.max(1,...rows.map(s=>s.length));
+  const cv=document.createElement('canvas'); cv.width=w*cell; cv.height=h*cell;
+  const g=cv.getContext('2d');
+  for(let y=0;y<h;y++){ const line=rows[y]||'';
+    for(let x=0;x<line.length;x++){ const ch=line[x]; if(ch!=='#'&&ch!=='+') continue;
+      g.fillStyle = ch==='+'?'rgba(233,233,236,0.30)':'#e9e9ec';
+      g.beginPath(); g.arc(x*cell+cell/2,y*cell+cell/2,r,0,Math.PI*2); g.fill(); } }
+  return {cv, w, h};
+}
+
+/* pet (16x16) — the only colour */
+const PAL={'0':null,'1':'#5a2412','2':'#e8643c','3':'#f2956b','4':'#ffffff','5':'#2a2a2a','6':'#3aa0c0'};
+const PET=[
+  '................','......2222......','.....122222.1...','....1222222221..',
+  '....1222222221..','...122222222221.','...124422442221.','...125522552221.',
+  '...122222222221.','...123333333321.','....1233333321..','....1222222221..',
+  '.....12222221...','....1.1..1.1....','...1..1..1..1...','................'];
+function drawPetCanvas(){ const px=8,S=16,cv=document.createElement('canvas'); cv.width=cv.height=S*px;
+  const g=cv.getContext('2d'); g.imageSmoothingEnabled=false;
+  for(let y=0;y<S;y++) for(let x=0;x<S;x++){ const col=PAL[PET[y][x]]; if(!col) continue;
+    g.fillStyle=col; g.fillRect(x*px,y*px,px,px); } return cv; }
+
+/* ============================================================ SCENE */
+const canvas=$('#view'), stage=$('#stage'), overlay=$('#overlay');
+const renderer=new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene();
+const DAY_BG=new THREE.Color('#0e1116'), NIGHT_BG=new THREE.Color('#050609');
+scene.background=DAY_BG.clone(); scene.fog=new THREE.Fog(scene.background.getHex(),560,1400);
+const camera=new THREE.PerspectiveCamera(34,1,1,5000);
+const CAM_HOME=new THREE.Vector3(360,330,440), TARGET_HOME=new THREE.Vector3(0,42,0);
+camera.position.copy(CAM_HOME);
+const controls=new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.copy(TARGET_HOME); controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.enablePan=true; controls.enableZoom=true; controls.minDistance=240; controls.maxDistance=1100;
+controls.minPolarAngle=0.18; controls.maxPolarAngle=1.48; controls.update();
+
+function dotTexture(bg,dot,cell,r){ const c=document.createElement('canvas'); c.width=c.height=cell;
+  const g=c.getContext('2d'); if(bg){g.fillStyle=bg;g.fillRect(0,0,cell,cell);} g.fillStyle=dot;
+  g.beginPath(); g.arc(cell/2,cell/2,r,0,Math.PI*2); g.fill();
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; return t; }
+function spriteFromCanvas(cv){ const t=new THREE.CanvasTexture(cv);
+  t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false;
+  const m=new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false});
+  const s=new THREE.Sprite(m); s.center.set(0.5,0); return s; }
+function radialTexture(inner,outer){ const sz=64,c=document.createElement('canvas'); c.width=c.height=sz;
+  const g=c.getContext('2d'); const grd=g.createRadialGradient(sz/2,sz/2,0,sz/2,sz/2,sz/2);
+  grd.addColorStop(0,inner); grd.addColorStop(1,outer); g.fillStyle=grd; g.fillRect(0,0,sz,sz);
+  return new THREE.CanvasTexture(c); }
+
+const floorTex=dotTexture('#14171c','rgba(233,233,236,0.20)',8,1.4); floorTex.repeat.set(ROOM/8,ROOM/8);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(ROOM,ROOM), new THREE.MeshBasicMaterial({map:floorTex}));
+floor.rotation.x=-Math.PI/2; scene.add(floor);
+const grid=new THREE.GridHelper(ROOM,GRID,0xffffff,0xffffff);
+grid.material.transparent=true; grid.material.opacity=0.10; grid.position.y=0.4; scene.add(grid);
+
+const wallTex=dotTexture('#0f1217','rgba(233,233,236,0.15)',8,1.3);
+function makeWall(rotY,pos,outward){ const m=new THREE.Mesh(new THREE.PlaneGeometry(ROOM,WALL),
+    new THREE.MeshBasicMaterial({map:wallTex.clone(),side:THREE.DoubleSide}));
+  m.material.map.wrapS=m.material.map.wrapT=THREE.RepeatWrapping; m.material.map.repeat.set(ROOM/8,WALL/8);
+  m.rotation.y=rotY; m.position.set(pos.x,WALL/2,pos.z); m.userData.outward=outward; scene.add(m); return m; }
+const walls=[
+  makeWall(0,{x:0,z:-HALF},new THREE.Vector3(0,0,-1)),
+  makeWall(Math.PI,{x:0,z:HALF},new THREE.Vector3(0,0,1)),
+  makeWall(Math.PI/2,{x:-HALF,z:0},new THREE.Vector3(-1,0,0)),
+  makeWall(-Math.PI/2,{x:HALF,z:0},new THREE.Vector3(1,0,0)),
+];
+
+const shadowTex=radialTexture('rgba(0,0,0,0.5)','rgba(0,0,0,0)');
+function makeShadow(){ const m=new THREE.Mesh(new THREE.PlaneGeometry(46,46),
+    new THREE.MeshBasicMaterial({map:shadowTex,transparent:true,depthWrite:false}));
+  m.rotation.x=-Math.PI/2; m.position.y=0.5; return m; }
+const hi=new THREE.Mesh(new THREE.PlaneGeometry(TILE,TILE),
+  new THREE.MeshBasicMaterial({color:0xffb347,transparent:true,opacity:0.16,depthWrite:false}));
+hi.rotation.x=-Math.PI/2; hi.position.y=0.6; hi.visible=false; scene.add(hi);
+
+/* ============================================================ OBJECTS */
+const placed={};          // id -> {id,name,cat,art,glow, c,r, sprite,shadow,glowSprite, baseW,baseH, spawn}
+const pickables=[];
+let moving=null;
+
+function loadOwned(){ try{ const d=JSON.parse(localStorage.getItem(STUDIO_KEY));
+  if(d&&Array.isArray(d.items)) return d.items.filter(o=>o.owned&&Array.isArray(o.art)&&o.art.length);
+}catch(e){} return []; }
+function loadLayout(){ try{ const d=JSON.parse(localStorage.getItem(ROR_KEY)); if(d&&d.layout) return d.layout; }catch(e){} return {}; }
+function saveLayout(){ const layout={}; for(const id in placed){ const p=placed[id]; layout[id]={c:p.c,r:p.r}; }
+  try{ localStorage.setItem(ROR_KEY,JSON.stringify({layout})); }catch(e){} }
+
+function tileOccupied(c,r){ for(const id in placed){ const p=placed[id]; if(p.c===c&&p.r===r) return true; } return false; }
+function freeTile(){ const order=[]; for(let r=0;r<GRID;r++) for(let c=0;c<GRID;c++) order.push([c,r]);
+  for(const [c,r] of order){ if(!tileOccupied(c,r) && !(c===petTile.c&&r===petTile.r)) return {c,r}; }
+  for(const [c,r] of order){ if(!tileOccupied(c,r)) return {c,r}; } return null; }
+
+function materialize(item,c,r,animate){
+  const w=tileToWorld(c,r);
+  const {cv,w:cw,h:ch}=dotArtCanvas(item.art);
+  const sprite=spriteFromCanvas(cv); const baseW=50, baseH=50*(ch/cw);
+  sprite.userData.id=item.id; sprite.position.set(w.x,0,w.z);
+  scene.add(sprite); pickables.push(sprite);
+  const shadow=makeShadow(); shadow.position.set(w.x,0.5,w.z); scene.add(shadow);
+  let glowSprite=null;
+  if(item.cat==='Lighting'||item.id==='lamp'){ glowSprite=new THREE.Sprite(new THREE.SpriteMaterial({
+      map:radialTexture('rgba(255,179,71,0.5)','rgba(255,179,71,0)'),transparent:true,depthWrite:false,
+      blending:THREE.AdditiveBlending})); glowSprite.scale.set(120,120,1);
+    glowSprite.position.set(w.x,baseH*0.7,w.z); scene.add(glowSprite); }
+  placed[item.id]={ id:item.id,name:item.name,cat:item.cat,art:item.art, c,r,
+    sprite,shadow,glowSprite, baseW,baseH, spawn: animate&&!reduced()?0.55:0 };
+}
+function disposeSprite(s){ if(!s) return; if(s.material.map) s.material.map.dispose(); s.material.dispose();
+  if(s.geometry) s.geometry.dispose(); scene.remove(s); const i=pickables.indexOf(s); if(i>=0) pickables.splice(i,1); }
+function removeObj(id){ const p=placed[id]; if(!p) return;
+  disposeSprite(p.sprite); if(p.shadow) disposeSprite(p.shadow); if(p.glowSprite) disposeSprite(p.glowSprite);
+  if(moving===p) moving=null; delete placed[id]; }
+function moveObj(p,c,r){ if(tileOccupied(c,r)) return false; p.c=c; p.r=r; const w=tileToWorld(c,r);
+  p.sprite.position.x=w.x; p.sprite.position.z=w.z;
+  if(p.shadow){ p.shadow.position.x=w.x; p.shadow.position.z=w.z; }
+  if(p.glowSprite){ p.glowSprite.position.x=w.x; p.glowSprite.position.z=w.z; } return true; }
+function setMoving(p){ moving=p; updatePanel(); }
+
+/* sync placements with the studio's owned set */
+function sync(animateNew){
+  const owned=loadOwned(); const layout=loadLayout(); const ownedIds=new Set(owned.map(o=>o.id));
+  for(const id in placed){ if(!ownedIds.has(id)) removeObj(id); }           // dropped from studio
+  let added=0;
+  owned.forEach(o=>{ if(placed[o.id]) return;
+    let pos=layout[o.id]; if(!pos || tileOccupied(pos.c,pos.r)) pos=freeTile();
+    if(pos){ materialize(o,pos.c,pos.r,animateNew); added++; } });
+  saveLayout(); updatePanel(); updateEmpty();
+  if(added && animateNew) toast(added===1?'✦ the room provides':'✦ the room reshapes');
+}
+function tidy(){ const ids=Object.keys(placed); let i=0;
+  outer: for(let r=0;r<GRID;r++) for(let c=0;c<GRID;c++){
+    if(c===petTile.c&&r===petTile.r) continue; if(i>=ids.length) break outer;
+    const p=placed[ids[i]]; p.c=c; p.r=r; const w=tileToWorld(c,r);
+    p.sprite.position.set(w.x,p.sprite.position.y,w.z);
+    if(p.shadow) p.shadow.position.set(w.x,0.5,w.z);
+    if(p.glowSprite) p.glowSprite.position.set(w.x,p.glowSprite.position.y,w.z); i++; }
+  saveLayout(); toast('tidied'); }
+
+/* ============================================================ PANEL */
+function updatePanel(){
+  const box=$('#chips'); box.innerHTML=''; const ids=Object.keys(placed);
+  $('#matCt').textContent=ids.length;
+  if(!ids.length){ const e=document.createElement('div'); e.className='empty-note';
+    e.textContent='nothing has materialised yet.'; box.appendChild(e); return; }
+  ids.forEach(id=>{ const p=placed[id];
+    const chip=document.createElement('div'); chip.className='chip'+(moving===p?' sel':'');
+    const ico=document.createElement('div'); ico.className='ico'; ico.appendChild(dotArtSVG(p.art)); chip.appendChild(ico);
+    const info=document.createElement('div'); info.className='info';
+    info.innerHTML=`<div class="nm">${p.name}</div><div class="cat">${p.cat||''}</div>`; chip.appendChild(info);
+    chip.onclick=()=>{ setMoving(moving===p?null:p); }; box.appendChild(chip); });
+}
+function updateEmpty(){ $('#empty').classList.toggle('show', Object.keys(placed).length===0); }
+
+/* ============================================================ PET */
+const pet=spriteFromCanvas(drawPetCanvas()); const PET_W=52; pet.scale.set(PET_W,PET_W,1);
+pet.userData.isPet=true; let petPos={x:0,z:0}, petTarget={x:0,z:0}, petTile={c:2,r:3};
+function petTo(c,r){ petTile={c,r}; const w=tileToWorld(c,r); petPos={x:w.x,z:w.z}; petTarget={...petPos}; pet.position.set(w.x,0,w.z); }
+petTo(2,3); scene.add(pet); pickables.push(pet);
+const LINES=['what do you need?','the room knows','cozy in here','♫ vibing','nice things!','...thinking','ship it!'];
+const speechEl=document.createElement('div'); speechEl.className='speech'; overlay.appendChild(speechEl);
+const labelEl=document.createElement('div'); labelEl.className='lbl'; overlay.appendChild(labelEl);
+let speechT=0;
+function say(){ speechEl.textContent=LINES[Math.floor(Math.random()*LINES.length)]; speechEl.classList.add('show'); speechT=2.6; }
+const _v=new THREE.Vector3();
+function project(x,y,z){ _v.set(x,y,z).project(camera); if(_v.z>1) return null;
+  const rect=canvas.getBoundingClientRect(); return {x:(_v.x*0.5+0.5)*rect.width, y:(-_v.y*0.5+0.5)*rect.height}; }
+
+/* ============================================================ POINTER */
+const raycaster=new THREE.Raycaster(); const ndc=new THREE.Vector2();
+let downX=0,downY=0,downT=0;
+function setNDC(e){ const rect=canvas.getBoundingClientRect();
+  ndc.x=((e.clientX-rect.left)/rect.width)*2-1; ndc.y=-((e.clientY-rect.top)/rect.height)*2+1; }
+canvas.addEventListener('pointerdown',e=>{ downX=e.clientX; downY=e.clientY; downT=performance.now(); canvas.classList.add('grabbing'); });
+canvas.addEventListener('pointerup',e=>{ canvas.classList.remove('grabbing');
+  if(Math.hypot(e.clientX-downX,e.clientY-downY)<6 && performance.now()-downT<400) handleClick(e); });
+canvas.addEventListener('pointermove',e=>{ setNDC(e); raycaster.setFromCamera(ndc,camera);
+  if(moving){ const hit=raycaster.intersectObject(floor)[0];
+    if(hit){ const {c,r}=worldToTile(hit.point.x,hit.point.z); const w=tileToWorld(c,r); hi.position.set(w.x,0.6,w.z); hi.visible=true; }
+    else hi.visible=false;
+  } else { hi.visible=false; canvas.style.cursor = raycaster.intersectObjects(pickables,false)[0]?'pointer':''; } });
+function handleClick(e){ setNDC(e); raycaster.setFromCamera(ndc,camera);
+  const hit=raycaster.intersectObjects(pickables,false)[0];
+  if(hit){ const o=hit.object; if(o.userData.isPet){ say(); return; }
+    setMoving(moving===placed[o.userData.id]?null:placed[o.userData.id]); return; }
+  const f=raycaster.intersectObject(floor)[0]; if(!f) return;
+  const {c,r}=worldToTile(f.point.x,f.point.z);
+  if(moving){ if(moveObj(moving,c,r)){ saveLayout(); setMoving(null); hi.visible=false; } } }
+
+/* ============================================================ CONTROLS */
+const tod=$('#tod'), todVal=$('#todVal');
+function setTod(v){ const t=v/100; document.documentElement.style.setProperty('--tint',t);
+  todVal.textContent=t<0.2?'DAY':t<0.45?'DUSK':t<0.7?'EVENING':'NIGHT';
+  scene.background.copy(DAY_BG).lerp(NIGHT_BG,t); scene.fog.color.copy(scene.background); }
+tod.addEventListener('input',e=>setTod(+e.target.value)); setTod(+tod.value);
+let motion=true;
+$('#tMotion').addEventListener('click',function(){ motion=!motion; this.classList.toggle('on',motion); });
+$('#tTidy').addEventListener('click',tidy);
+$('#tReset').addEventListener('click',()=>{ try{localStorage.removeItem(ROR_KEY);}catch(e){}
+  Object.keys(placed).forEach(removeObj); sync(true); });
+
+/* toast */
+let toastT=null; function toast(m){ const el=$('#toast'); el.textContent=m; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2200); }
+
+/* live refresh when the studio acquires/changes objects */
+window.addEventListener('storage',e=>{ if(e.key===STUDIO_KEY) sync(true); });
+
+/* ============================================================ LOOP */
+const BASE_FOV=34, REF_ASPECT=1.4;
+function resize(){ const w=stage.clientWidth,h=stage.clientHeight; renderer.setSize(w,h,false);
+  const aspect=w/h; camera.aspect=aspect;
+  if(aspect<REF_ASPECT){ const hFov=2*Math.atan(Math.tan(BASE_FOV*Math.PI/360)*REF_ASPECT);
+    camera.fov=clamp(2*Math.atan(Math.tan(hFov/2)/aspect)*180/Math.PI,BASE_FOV,60); } else camera.fov=BASE_FOV;
+  camera.updateProjectionMatrix(); }
+window.addEventListener('resize',resize); resize();
+
+let wanderT=0; const clock=new THREE.Clock();
+function tick(){ const dt=clock.getDelta(); const anim=motion&&!reduced();
+  controls.update();
+  for(const w of walls){ const toCam=camera.position.clone().sub(w.position); w.visible=w.userData.outward.dot(toCam)<0; }
+
+  // object spawn pop + move highlight scaling
+  for(const id in placed){ const o=placed[id]; let s=1;
+    if(o.spawn>0){ o.spawn=Math.max(0,o.spawn-dt); const t=clamp(1-o.spawn/0.55,0,1); s=easeOutBack(t); }
+    const m=(o===moving)?1.12:1; o.sprite.scale.set(o.baseW*s*m, o.baseH*s*m, 1); }
+
+  if(anim){ wanderT-=dt;
+    if(wanderT<=0){ wanderT=1.9;
+      for(let i=0;i<8;i++){ const c=Math.floor(Math.random()*GRID), r=Math.floor(Math.random()*GRID);
+        if(!tileOccupied(c,r)){ petTile={c,r}; const w=tileToWorld(c,r); petTarget={x:w.x,z:w.z}; break; } }
+      if(Math.random()<0.5) say(); }
+    petPos.x+=(petTarget.x-petPos.x)*Math.min(1,dt*2.2); petPos.z+=(petTarget.z-petPos.z)*Math.min(1,dt*2.2);
+    pet.position.set(petPos.x, Math.max(0,Math.sin(performance.now()*0.004))*3, petPos.z);
+  } else pet.position.set(petPos.x,0,petPos.z);
+
+  if(speechT>0){ speechT-=dt; if(speechT<=0) speechEl.classList.remove('show'); }
+  if(speechEl.classList.contains('show')){ const p=project(pet.position.x,PET_W+10,pet.position.z);
+    if(p){ speechEl.style.left=p.x+'px'; speechEl.style.top=(p.y-4)+'px'; speechEl.style.display='block'; } else speechEl.style.display='none'; }
+  if(moving){ const p=project(moving.sprite.position.x, moving.sprite.scale.y+8, moving.sprite.position.z);
+    labelEl.textContent='moving · click a tile';
+    if(p){ labelEl.classList.add('show'); labelEl.style.left=p.x+'px'; labelEl.style.top=(p.y-2)+'px'; } else labelEl.classList.remove('show');
+  } else labelEl.classList.remove('show');
+
+  renderer.render(scene,camera); requestAnimationFrame(tick);
+}
+tick();
+if(reduced()){ motion=false; $('#tMotion').classList.remove('on'); }
+
+/* ============================================================ BOOT */
+sync(true);     // materialise everything currently owned in the studio
+
+/* prototype debug handle */
+window.__ror={scene,camera,controls,placed,sync,tidy,
+  orbit:(az,polar,dist)=>{ const s=new THREE.Spherical(dist,polar,az);
+    camera.position.setFromSpherical(s).add(controls.target); controls.update(); }};
+</script>
+</body>
+</html>

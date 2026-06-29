@@ -2,16 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "Static file server (Python)",
+      "name": "tamagotchi",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8080"],
-      "port": 8080
-    },
-    {
-      "name": "Static file server (Node npx)",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-p", "5173", "."],
-      "port": 5173
+      "runtimeArgs": ["-m", "http.server"],
+      "port": 8080,
+      "autoPort": true
     }
   ]
 }
